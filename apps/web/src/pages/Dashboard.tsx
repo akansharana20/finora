@@ -52,11 +52,17 @@ export const Dashboard: React.FC = () => {
     );
   }
 
-  const { kpis, attentionItems, overdueInvoices, monthlyTrend, recentActivity } = data;
+  const {
+    kpis = {},
+    attentionItems = [],
+    overdueInvoices = [],
+    monthlyTrend = [],
+    recentActivity = [],
+  } = data || {};
 
   // Max value for simple SVG chart scale
   const maxVal = Math.max(
-    ...monthlyTrend.map((m: any) => Math.max(m.revenue, m.expenses)),
+    ...(monthlyTrend || []).map((m: any) => Math.max(m.revenue || 0, m.expenses || 0)),
     1000
   );
 
@@ -306,7 +312,7 @@ export const Dashboard: React.FC = () => {
                 <div className="flex-1">
                   <div className="text-slate-800 font-medium">{log.description}</div>
                   <div className="text-slate-400 text-[11px] mt-0.5">
-                    {log.user} • {new Date(log.timestamp).toLocaleString('en-GB')}
+                    {typeof log.user === 'object' ? log.user?.name || log.user?.email || 'System' : (log.user || 'System')} • {new Date(log.timestamp).toLocaleString('en-GB')}
                   </div>
                 </div>
               </div>

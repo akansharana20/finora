@@ -2,7 +2,21 @@ import { handleMockApi } from './mockData';
 
 export function isDemoMode(): boolean {
   const demoEnv = import.meta.env.VITE_DEMO_MODE;
-  return demoEnv === 'true' || demoEnv === '1';
+  if (demoEnv === 'true' || demoEnv === '1') {
+    return true;
+  }
+  try {
+    const saved = localStorage.getItem('finora_user');
+    if (saved) {
+      const u = JSON.parse(saved);
+      if (u && (u.demo === true || u.demo === 'true')) {
+        return true;
+      }
+    }
+  } catch (e) {
+    // Ignore parse error
+  }
+  return false;
 }
 
 function getApiBaseUrl(): string {
