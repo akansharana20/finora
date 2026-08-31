@@ -1,4 +1,14 @@
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000/api';
+function getApiBaseUrl(): string {
+  const envUrl = (import.meta as any).env?.VITE_API_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
+    const trimmed = envUrl.trim().replace(/\/+$/, '');
+    if (trimmed.endsWith('/api')) {
+      return trimmed;
+    }
+    return `${trimmed}/api`;
+  }
+  return 'http://localhost:4000/api';
+}
 
 export async function apiFetch<T = any>(endpoint: string, options: RequestInit = {}): Promise<{ success: boolean; data?: T; message?: string; error?: any }> {
   const token = localStorage.getItem('finora_token');
@@ -12,8 +22,11 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  const baseUrl = getApiBaseUrl();
+  const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
   try {
-    const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const res = await fetch(`${baseUrl}${formattedEndpoint}`, {
       ...options,
       headers,
     });
