@@ -169,22 +169,38 @@ npm run build
 
 ---
 
-## Deployment
+## Production Deployment on Vercel
 
-Finora is prepared for deployment on modern cloud platforms such as **Vercel** or **Render** / **Railway**:
+Finora is designed as a monorepo where **`apps/web`** (Frontend) and **`apps/api`** (Backend API) are deployed as separate Vercel projects from the same GitHub repository (`akansharana20/finora`).
 
-### Frontend (`apps/web`) Deployment (Vercel)
-1. Import the repository on Vercel.
-2. Set Root Directory to `apps/web` (or use the root `vercel.json`).
-3. Set Build Command to `npm run build` and Output Directory to `dist`.
-4. Add Environment Variable: `VITE_API_URL=https://your-api-domain.com/api`.
+### 1. Backend API Project (`apps/api`)
+1. Create a new Vercel Project and import `akansharana20/finora`.
+2. Set **Root Directory** to `apps/api`.
+3. Vercel automatically detects Node.js and builds using `npm run build` (`prisma generate && tsc`).
+4. Configure Environment Variables in Vercel:
+   - `DATABASE_URL`: Production PostgreSQL connection string (e.g., Neon / Supabase).
+   - `JWT_SECRET`: Secure random key (minimum 32 characters).
+   - `CORS_ORIGIN`: Deployed Web Frontend URL (e.g., `https://finora-web.vercel.app`).
+   - `FRONTEND_URL`: Deployed Web Frontend URL (e.g., `https://finora-web.vercel.app`).
+   - `DEMO_MODE`: `true` (to retain demo testing accounts) or `false`.
+   - `INTEGRATION_MODE`: `mock`, `sandbox`, or `production`.
+5. Verify API deployment:
+   - `GET https://<your-api-domain>.vercel.app/api/health` returns `{"status":"ok","service":"finora-api",...}`.
 
-### Backend (`apps/api`) Deployment (Render / Railway / Fly.io / Vercel Serverless)
-1. Set Root Directory to `apps/api`.
-2. Set Build Command to `npm run build`.
-3. Set Start Command to `npm run start`.
-4. Add Environment Variables (`DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`, `HMRC_*`, `XERO_*`).
-5. Run `npx prisma db push` during deployment pipeline to ensure database schema is up-to-date.
+### 2. Frontend Web App Project (`apps/web`)
+1. Create a second Vercel Project and import `akansharana20/finora`.
+2. Set **Root Directory** to `apps/web` (or leave default root with root `vercel.json`).
+3. Framework Preset: **Vite** (Build: `npm run build`, Output: `dist`).
+4. Configure Environment Variables in Vercel:
+   - `VITE_API_URL`: Deployed API base URL (e.g., `https://finora-api.vercel.app/api`).
+5. Redeploy frontend if `VITE_API_URL` is added after initial build.
+
+### 3. Database Migration & Demo Data Seeder
+Run schema push and seeding against your production PostgreSQL database:
+```bash
+DATABASE_URL="your-production-db-url" npm run db:push
+DATABASE_URL="your-production-db-url" npm run db:seed
+```
 
 ---
 
