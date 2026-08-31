@@ -1,8 +1,45 @@
-﻿node_modules/
-.env
-.env.*
-!.env.example
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build & Bundle Output
 dist/
 build/
 .vite/
+*.tsbuildinfo
+
+# Environment Files & Secrets
+.env
+.env.local
+.env.*
+!.env.example
+
+# Database & Local Runtime Data
+pgdata/
+*.db
+*.sqlite
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+
+# IDE, OS & AI Tooling Artifacts
+.agents/
+.claude/
+.cursor/
+.devin/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Vercel Deployment Metadata
 .vercel/
