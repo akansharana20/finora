@@ -45,19 +45,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           try {
             const u = JSON.parse(saved);
             setUser({ ...u, demo: true });
+            setIsLoading(false);
+            return;
           } catch (e) {
-            setUser(null);
+            // Fallback to apiFetch('/auth/me') below
           }
         }
-        setIsLoading(false);
-        return;
       }
 
       apiFetch('/auth/me')
         .then((res) => {
           if (res.success && res.data) {
             const u = res.data;
-            const fullUser = { ...u, firmName: u.firm?.name, demo: false };
+            const fullUser = { ...u, firmName: u.firm?.name || u.firmName, demo: isDemoMode() || !!u.demo };
             setUser(fullUser);
             localStorage.setItem('finora_user', JSON.stringify(fullUser));
           } else {
