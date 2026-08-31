@@ -62,7 +62,7 @@ export const DEMO_USERS: Record<string, DemoUser> = {
   },
   'staff@acme.co.uk': {
     id: 'demo-user-staff',
-    email: 'user@acme.co.uk',
+    email: 'staff@acme.co.uk',
     name: 'Emma Watson',
     role: 'USER',
     firmId: 'demo-firm-acme',
@@ -547,17 +547,24 @@ export function handleMockApi(
 
   // Auth login
   if (path === '/auth/login') {
-    const email = body.email || 'admin@acme.co.uk';
-    const user = DEMO_USERS[email] || {
-      ...DEMO_USERS['admin@acme.co.uk'],
-      email,
-      name: email.split('@')[0].toUpperCase(),
-    };
+    const email = (body.email || '').trim().toLowerCase();
+    const password = body.password;
+
+    const user = DEMO_USERS[email];
+    if (user && password === 'Password123!') {
+      return {
+        success: true,
+        data: {
+          user,
+          token: `demo-jwt-token-${user.role.toLowerCase()}`,
+        },
+      };
+    }
+
     return {
-      success: true,
-      data: {
-        user,
-        token: 'demo-jwt-token-xyz',
+      success: false,
+      error: {
+        message: 'Invalid credentials. For demo mode, please use password: Password123!',
       },
     };
   }

@@ -39,11 +39,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (token) {
+      if (isDemoMode()) {
+        const saved = localStorage.getItem('finora_user');
+        if (saved) {
+          try {
+            const u = JSON.parse(saved);
+            setUser({ ...u, demo: true });
+          } catch (e) {
+            setUser(null);
+          }
+        }
+        setIsLoading(false);
+        return;
+      }
+
       apiFetch('/auth/me')
         .then((res) => {
           if (res.success && res.data) {
             const u = res.data;
-            const fullUser = { ...u, firmName: u.firm?.name, demo: isDemoMode() || u.demo };
+            const fullUser = { ...u, firmName: u.firm?.name, demo: false };
             setUser(fullUser);
             localStorage.setItem('finora_user', JSON.stringify(fullUser));
           } else {

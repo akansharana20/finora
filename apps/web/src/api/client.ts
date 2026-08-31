@@ -1,12 +1,12 @@
 import { handleMockApi } from './mockData';
 
 export function isDemoMode(): boolean {
-  const demoEnv = (import.meta as any).env?.VITE_DEMO_MODE;
-  return demoEnv === 'true' || demoEnv === '1' || demoEnv === true;
+  const demoEnv = import.meta.env.VITE_DEMO_MODE;
+  return demoEnv === 'true' || demoEnv === '1';
 }
 
 function getApiBaseUrl(): string {
-  const envUrl = (import.meta as any).env?.VITE_API_URL;
+  const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
     const trimmed = envUrl.trim().replace(/\/+$/, '');
     if (trimmed.endsWith('/api')) {

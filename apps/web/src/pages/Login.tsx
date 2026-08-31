@@ -150,7 +150,7 @@ export const Login: React.FC = () => {
               <button
                 type="button"
                 disabled={loading}
-                onClick={() => handlePresetLogin('user@acme.co.uk')}
+                onClick={() => handlePresetLogin('staff@acme.co.uk')}
                 className="py-2 px-3 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg flex items-center justify-between transition-colors shadow-sm disabled:opacity-50"
               >
                 <div className="flex items-center space-x-2">
