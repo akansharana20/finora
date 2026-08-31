@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Mail, Building2, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Lock, Mail, AlertCircle, ArrowRight } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('admin@acme.co.uk');
@@ -9,7 +9,7 @@ export const Login: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, isDemo } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,9 +27,18 @@ export const Login: React.FC = () => {
     }
   };
 
-  const fillPreset = (presetEmail: string) => {
+  const handlePresetLogin = async (presetEmail: string) => {
     setEmail(presetEmail);
     setPassword('Password123!');
+    setError(null);
+    setLoading(true);
+    const res = await login(presetEmail, 'Password123!');
+    setLoading(false);
+    if (res.success) {
+      navigate('/dashboard');
+    } else {
+      setError(res.message || 'Login failed');
+    }
   };
 
   return (
@@ -103,24 +112,19 @@ export const Login: React.FC = () => {
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Quick Demo Accounts
               </span>
-              <span className="text-[10px] bg-blue-100 text-blue-700 font-medium px-2 py-0.5 rounded">
-                DEMO_MODE=true
+              <span
+                className={`text-[10px] font-medium px-2 py-0.5 rounded ${
+                  isDemo ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-blue-100 text-blue-700'
+                }`}
+              >
+                DEMO_MODE={isDemo ? 'true' : 'false'}
               </span>
             </div>
             <div className="grid grid-cols-1 gap-2">
               <button
                 type="button"
                 disabled={loading}
-                onClick={async () => {
-                  setEmail('admin@acme.co.uk');
-                  setPassword('Password123!');
-                  setError(null);
-                  setLoading(true);
-                  const res = await login('admin@acme.co.uk', 'Password123!');
-                  setLoading(false);
-                  if (res.success) navigate('/dashboard');
-                  else setError(res.message || 'Login failed');
-                }}
+                onClick={() => handlePresetLogin('admin@acme.co.uk')}
                 className="py-2 px-3 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg flex items-center justify-between transition-colors shadow-sm disabled:opacity-50"
               >
                 <div className="flex items-center space-x-2">
@@ -133,16 +137,7 @@ export const Login: React.FC = () => {
               <button
                 type="button"
                 disabled={loading}
-                onClick={async () => {
-                  setEmail('accountant@acme.co.uk');
-                  setPassword('Password123!');
-                  setError(null);
-                  setLoading(true);
-                  const res = await login('accountant@acme.co.uk', 'Password123!');
-                  setLoading(false);
-                  if (res.success) navigate('/dashboard');
-                  else setError(res.message || 'Login failed');
-                }}
+                onClick={() => handlePresetLogin('accountant@acme.co.uk')}
                 className="py-2 px-3 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg flex items-center justify-between transition-colors shadow-sm disabled:opacity-50"
               >
                 <div className="flex items-center space-x-2">
@@ -155,16 +150,7 @@ export const Login: React.FC = () => {
               <button
                 type="button"
                 disabled={loading}
-                onClick={async () => {
-                  setEmail('user@acme.co.uk');
-                  setPassword('Password123!');
-                  setError(null);
-                  setLoading(true);
-                  const res = await login('user@acme.co.uk', 'Password123!');
-                  setLoading(false);
-                  if (res.success) navigate('/dashboard');
-                  else setError(res.message || 'Login failed');
-                }}
+                onClick={() => handlePresetLogin('staff@acme.co.uk')}
                 className="py-2 px-3 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg flex items-center justify-between transition-colors shadow-sm disabled:opacity-50"
               >
                 <div className="flex items-center space-x-2">
@@ -175,7 +161,8 @@ export const Login: React.FC = () => {
               </button>
             </div>
             <p className="text-[11px] text-slate-400 text-center mt-2">
-              Default password: <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-700 font-mono">Password123!</code>
+              Default password:{' '}
+              <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-700 font-mono">Password123!</code>
             </p>
           </div>
         </div>

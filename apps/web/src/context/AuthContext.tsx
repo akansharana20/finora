@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { apiFetch } from '../api/client';
+import { apiFetch, isDemoMode } from '../api/client';
 
 export interface UserProfile {
   id: string;
@@ -14,6 +14,7 @@ export interface UserProfile {
     companyNumber?: string;
     vatNumber?: string;
   };
+  demo?: boolean;
 }
 
 interface AuthContextType {
@@ -21,6 +22,7 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isDemo: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
 }
@@ -37,11 +39,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (token) {
+      if (isDemoMode()) {
+        const saved = localStorage.getItem('finora_user');
+        if (saved) {
+          try {
+            const u = JSON.parse(saved);
+            setUser({ ...u, demo: true });
+          } catch (e) {
+            setUser(null);
+          }
+        }
+        setIsLoading(false);
+        return;
+      }
+
       apiFetch('/auth/me')
         .then((res) => {
           if (res.success && res.data) {
             const u = res.data;
-            const fullUser = { ...u, firmName: u.firm?.name };
+            const fullUser = { ...u, firmName: u.firm?.name, demo: false };
             setUser(fullUser);
             localStorage.setItem('finora_user', JSON.stringify(fullUser));
           } else {
@@ -62,10 +78,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (res.success && res.data) {
       const { user: loggedUser, token: authToken } = res.data;
-      setUser(loggedUser);
+      const fullUser = { ...loggedUser, demo: isDemoMode() || loggedUser.demo };
+      setUser(fullUser);
       setToken(authToken);
       localStorage.setItem('finora_token', authToken);
-      localStorage.setItem('finora_user', JSON.stringify(loggedUser));
+      localStorage.setItem('finora_user', JSON.stringify(fullUser));
       return { success: true };
     }
 
@@ -77,6 +94,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     localStorage.removeItem('finora_token');
     localStorage.removeItem('finora_user');
+    sessionStorage.removeItem('finora_token');
+    sessionStorage.removeItem('finora_user');
   };
 
   return (
@@ -86,6 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isAuthenticated: !!token && !!user,
         isLoading,
+        isDemo: isDemoMode() || !!user?.demo,
         login,
         logout,
       }}

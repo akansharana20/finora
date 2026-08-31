@@ -1,5 +1,12 @@
+import { handleMockApi } from './mockData';
+
+export function isDemoMode(): boolean {
+  const demoEnv = import.meta.env.VITE_DEMO_MODE;
+  return demoEnv === 'true' || demoEnv === '1';
+}
+
 function getApiBaseUrl(): string {
-  const envUrl = (import.meta as any).env?.VITE_API_URL;
+  const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
     const trimmed = envUrl.trim().replace(/\/+$/, '');
     if (trimmed.endsWith('/api')) {
@@ -10,7 +17,14 @@ function getApiBaseUrl(): string {
   return 'http://localhost:4000/api';
 }
 
-export async function apiFetch<T = any>(endpoint: string, options: RequestInit = {}): Promise<{ success: boolean; data?: T; message?: string; error?: any }> {
+export async function apiFetch<T = any>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<{ success: boolean; data?: T; message?: string; error?: any }> {
+  if (isDemoMode()) {
+    return handleMockApi(endpoint, options);
+  }
+
   const token = localStorage.getItem('finora_token');
 
   const headers: Record<string, string> = {

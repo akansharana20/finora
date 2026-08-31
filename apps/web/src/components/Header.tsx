@@ -1,9 +1,9 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, User as UserIcon, ShieldAlert } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 
 export const Header: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isDemo } = useAuth();
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-20 shadow-xs">
@@ -14,6 +14,15 @@ export const Header: React.FC = () => {
         <span className="bg-slate-100 text-slate-600 text-xs font-semibold px-2 py-0.5 rounded border border-slate-200">
           UK GAAP & MTD VAT
         </span>
+        {isDemo && (
+          <span
+            className="bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold px-2.5 py-0.5 rounded-md flex items-center space-x-1 shadow-2xs"
+            title="Running in Frontend Demo Mode with sample accounting data"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse inline-block" />
+            <span>DEMO MODE</span>
+          </span>
+        )}
       </div>
 
       <div className="flex items-center space-x-4">
