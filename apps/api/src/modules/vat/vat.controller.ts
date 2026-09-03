@@ -41,4 +41,15 @@ export class VatController {
       return next(error);
     }
   }
+
+  static async submitReturn(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { periodKey } = req.params;
+      const { HmrcService } = await import('../hmrc/hmrc.service');
+      const result = await HmrcService.submitReturn(req.firmId!, periodKey);
+      return sendSuccess(res, result, `VAT Return for period ${periodKey} submitted`);
+    } catch (error) {
+      return next(error);
+    }
+  }
 }

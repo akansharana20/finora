@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "preserve",
-    "moduleResolution": "bundler",
+    "module": "CommonJS",
+    "moduleResolution": "node",
     "resolveJsonModule": true,
     "types": [
       "node"
@@ -10,9 +10,14 @@
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "outDir": "dist"
+    "allowSyntheticDefaultImports": true
   },
   "include": [
-    "**/*.ts"
+    "prisma/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "apps",
+    "dist"
   ]
 }

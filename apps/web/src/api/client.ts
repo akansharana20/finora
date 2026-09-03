@@ -35,16 +35,27 @@ export async function apiFetch<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<{ success: boolean; data?: T; message?: string; error?: any }> {
-  if (isDemoMode()) {
-    return handleMockApi(endpoint, options);
-  }
-
-  const token = localStorage.getItem('finora_token');
+  const activeFirmId = localStorage.getItem('finora_active_firm_id');
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
+
+  if (activeFirmId) {
+    headers['x-firm-id'] = activeFirmId;
+  }
+
+  const mergedOptions: RequestInit = {
+    ...options,
+    headers,
+  };
+
+  if (isDemoMode()) {
+    return handleMockApi(endpoint, mergedOptions);
+  }
+
+  const token = localStorage.getItem('finora_token');
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -55,7 +66,7 @@ export async function apiFetch<T = any>(
 
   try {
     const res = await fetch(`${baseUrl}${formattedEndpoint}`, {
-      ...options,
+      ...mergedOptions,
       headers,
     });
 

@@ -14,10 +14,17 @@ export const Settings: React.FC = () => {
 
   const [formData, setFormData] = useState({
     name: '',
+    legalName: '',
     companyNumber: '',
     vatNumber: '',
     address: '',
+    city: '',
+    county: '',
     postcode: '',
+    contactEmail: '',
+    contactPhone: '',
+    vatScheme: 'STANDARD',
+    financialYearStart: 4,
   });
 
   const [message, setMessage] = useState<string | null>(null);
@@ -34,10 +41,17 @@ export const Settings: React.FC = () => {
         setFirm(res.data);
         setFormData({
           name: res.data.name || '',
+          legalName: res.data.legalName || res.data.name || '',
           companyNumber: res.data.companyNumber || '',
           vatNumber: res.data.vatNumber || '',
           address: res.data.address || '',
+          city: res.data.city || '',
+          county: res.data.county || '',
           postcode: res.data.postcode || '',
+          contactEmail: res.data.contactEmail || '',
+          contactPhone: res.data.contactPhone || '',
+          vatScheme: res.data.vatScheme || 'STANDARD',
+          financialYearStart: res.data.financialYearStart || 4,
         });
       }
     } else if (activeTab === 'users') {
@@ -120,17 +134,49 @@ export const Settings: React.FC = () => {
             </div>
           )}
 
+          {/* Manage Companies Banner for Admin */}
+          {user?.role === 'ADMIN' && (
+            <div className="p-4 mb-4 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
+              <div>
+                <span className="font-bold text-slate-800 block text-xs">Multi-Company Management</span>
+                <span className="text-[11px] text-slate-500">
+                  Switch between organizations or register additional entities
+                </span>
+              </div>
+              <a
+                href="/companies"
+                className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-semibold px-3 py-1.5 rounded text-xs shadow-xs transition-colors inline-flex items-center space-x-1"
+              >
+                <span>Manage All Companies</span>
+                <span>→</span>
+              </a>
+            </div>
+          )}
+
           <form onSubmit={handleUpdateFirm} className="space-y-4 text-xs">
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">Company Registered Name *</label>
-              <input
-                type="text"
-                required
-                disabled={user?.role !== 'ADMIN'}
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Company Trading Name *</label>
+                <input
+                  type="text"
+                  required
+                  disabled={user?.role !== 'ADMIN'}
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Legal / Registered Name</label>
+                <input
+                  type="text"
+                  disabled={user?.role !== 'ADMIN'}
+                  value={formData.legalName}
+                  onChange={(e) => setFormData({ ...formData, legalName: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -141,7 +187,7 @@ export const Settings: React.FC = () => {
                   disabled={user?.role !== 'ADMIN'}
                   value={formData.companyNumber}
                   onChange={(e) => setFormData({ ...formData, companyNumber: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
+                  className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600 font-mono"
                   placeholder="08123456"
                 />
               </div>
@@ -159,14 +205,36 @@ export const Settings: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">Business Address</label>
+              <input
+                type="text"
+                disabled={user?.role !== 'ADMIN'}
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Business Address</label>
+                <label className="block font-semibold text-slate-700 mb-1">City</label>
                 <input
                   type="text"
                   disabled={user?.role !== 'ADMIN'}
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">County</label>
+                <input
+                  type="text"
+                  disabled={user?.role !== 'ADMIN'}
+                  value={formData.county}
+                  onChange={(e) => setFormData({ ...formData, county: e.target.value })}
                   className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
                 />
               </div>
@@ -178,8 +246,65 @@ export const Settings: React.FC = () => {
                   disabled={user?.role !== 'ADMIN'}
                   value={formData.postcode}
                   onChange={(e) => setFormData({ ...formData, postcode: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
+                  className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600 font-mono uppercase"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Contact Email</label>
+                <input
+                  type="email"
+                  disabled={user?.role !== 'ADMIN'}
+                  value={formData.contactEmail}
+                  onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
+                  placeholder="finance@company.co.uk"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Contact Phone</label>
+                <input
+                  type="text"
+                  disabled={user?.role !== 'ADMIN'}
+                  value={formData.contactPhone}
+                  onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
+                  placeholder="020 7946 0000"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">VAT Scheme</label>
+                <select
+                  disabled={user?.role !== 'ADMIN'}
+                  value={formData.vatScheme}
+                  onChange={(e) => setFormData({ ...formData, vatScheme: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600 bg-white"
+                >
+                  <option value="STANDARD">Standard Accounting (Accrual)</option>
+                  <option value="FLAT_RATE">Flat Rate Scheme</option>
+                  <option value="CASH">Cash Accounting</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Financial Year Start</label>
+                <select
+                  disabled={user?.role !== 'ADMIN'}
+                  value={formData.financialYearStart}
+                  onChange={(e) => setFormData({ ...formData, financialYearStart: Number(e.target.value) })}
+                  className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600 bg-white"
+                >
+                  <option value={1}>January</option>
+                  <option value={4}>April (UK standard)</option>
+                  <option value={7}>July</option>
+                  <option value={10}>October</option>
+                </select>
               </div>
             </div>
 

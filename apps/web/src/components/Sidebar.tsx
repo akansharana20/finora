@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { NavLink, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
   Receipt,
@@ -17,8 +17,11 @@ import {
   ChevronRight,
   ChevronDown,
   Building,
+  ChevronsUpDown,
+  Check,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { apiFetch } from '../api/client';
 
 export const Sidebar: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -26,9 +29,27 @@ export const Sidebar: React.FC = () => {
   const [vatOpen, setVatOpen] = useState(true);
   const [integrationsOpen, setIntegrationsOpen] = useState(true);
 
-  const { user } = useAuth();
+  const [companyMenuOpen, setCompanyMenuOpen] = useState(false);
+  const [companies, setCompanies] = useState<any[]>([]);
+
+  const { user, activeFirmId, activeFirmName, switchCompany } = useAuth();
 
   const toggleCollapse = () => setIsCollapsed(!isCollapsed);
+
+  useEffect(() => {
+    if (user?.role === 'ADMIN') {
+      apiFetch('/firms').then((res) => {
+        if (res.success && res.data) {
+          setCompanies(res.data);
+        }
+      });
+    }
+  }, [user?.role, activeFirmId]);
+
+  const handleSelectCompany = (c: any) => {
+    switchCompany(c.id, c.name);
+    setCompanyMenuOpen(false);
+  };
 
   return (
     <aside
@@ -65,19 +86,70 @@ export const Sidebar: React.FC = () => {
         </button>
       </div>
 
-      {/* Firm & Role Badge */}
+      {/* Firm & Role Badge / Company Switcher */}
       {!isCollapsed && (
-        <div className="px-4 py-3 bg-slate-950/60 border-b border-slate-800/80">
-          <div className="flex items-center space-x-2">
-            <Building size={14} className="text-slate-400" />
-            <span className="text-xs font-semibold text-slate-200 truncate">
-              {user?.firmName || 'Acme Consulting Ltd'}
-            </span>
-          </div>
-          <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+        <div className="relative px-4 py-3 bg-slate-950/60 border-b border-slate-800/80">
+          {user?.role === 'ADMIN' ? (
+            <button
+              onClick={() => setCompanyMenuOpen(!companyMenuOpen)}
+              className="w-full text-left p-1.5 -m-1.5 rounded-lg hover:bg-slate-800/70 transition-colors group flex items-center justify-between"
+              title="Click to switch active company"
+            >
+              <div className="flex items-center space-x-2 overflow-hidden">
+                <Building size={14} className="text-blue-400 shrink-0" />
+                <span className="text-xs font-semibold text-white truncate group-hover:text-blue-300">
+                  {activeFirmName || user?.firmName || 'Acme Consulting Ltd'}
+                </span>
+              </div>
+              <ChevronsUpDown size={14} className="text-slate-500 group-hover:text-slate-300 shrink-0 ml-1" />
+            </button>
+          ) : (
+            <div className="flex items-center space-x-2">
+              <Building size={14} className="text-slate-400" />
+              <span className="text-xs font-semibold text-slate-200 truncate">
+                {activeFirmName || user?.firmName || 'Acme Consulting Ltd'}
+              </span>
+            </div>
+          )}
+
+          <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-400">
             <span>Role: <strong className="text-blue-400 font-medium">{user?.role}</strong></span>
             <span className="text-emerald-400 font-medium">● GBP VAT</span>
           </div>
+
+          {/* Switcher Dropdown Menu */}
+          {companyMenuOpen && user?.role === 'ADMIN' && (
+            <div className="absolute left-2 right-2 top-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden py-1 divide-y divide-slate-800">
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Switch Company
+              </div>
+              <div className="max-h-48 overflow-y-auto py-1">
+                {companies.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => handleSelectCompany(c)}
+                    className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-slate-800 text-slate-200"
+                  >
+                    <div className="truncate mr-2">
+                      <span className="font-semibold block truncate">{c.name}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">{c.vatNumber || c.companyNumber || 'UK Firm'}</span>
+                    </div>
+                    {c.id === activeFirmId && <Check size={14} className="text-blue-400 shrink-0" />}
+                  </button>
+                ))}
+              </div>
+              <div className="p-1.5 bg-slate-950/60">
+                <Link
+                  to="/companies"
+                  onClick={() => setCompanyMenuOpen(false)}
+                  className="w-full flex items-center justify-center space-x-1.5 py-1.5 text-xs text-blue-400 hover:text-blue-300 font-semibold rounded hover:bg-slate-800"
+                >
+                  <Building2 size={13} />
+                  <span>Manage Companies</span>
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -98,6 +170,24 @@ export const Sidebar: React.FC = () => {
           <LayoutDashboard size={18} className="shrink-0" />
           {!isCollapsed && <span>Dashboard</span>}
         </NavLink>
+
+        {/* Companies (Admin only) */}
+        {user?.role === 'ADMIN' && (
+          <NavLink
+            to="/companies"
+            className={({ isActive }) =>
+              `flex items-center space-x-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+                isActive
+                  ? 'bg-blue-600 text-white font-semibold shadow-sm'
+                  : 'hover:bg-slate-800 text-slate-300 hover:text-white'
+              }`
+            }
+            title="Company Management"
+          >
+            <Building2 size={18} className="shrink-0" />
+            {!isCollapsed && <span>Companies</span>}
+          </NavLink>
+        )}
 
         {/* Accounting Group */}
         <div>

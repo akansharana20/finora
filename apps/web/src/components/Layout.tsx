@@ -2,8 +2,11 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { useAuth } from '../context/AuthContext';
 
 export const Layout: React.FC = () => {
+  const { activeFirmId } = useAuth();
+
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans antialiased text-slate-900">
       <Sidebar />
@@ -11,7 +14,7 @@ export const Layout: React.FC = () => {
         <Header />
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="max-w-7xl mx-auto space-y-6">
-            <Outlet />
+            <Outlet key={activeFirmId} />
           </div>
         </main>
       </div>

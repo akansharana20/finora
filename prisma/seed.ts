@@ -28,12 +28,21 @@ async function main() {
   const acmeFirm = await prisma.firm.create({
     data: {
       name: 'Acme Consulting Ltd',
+      legalName: 'Acme Consulting Ltd',
       companyNumber: '08123456',
       vatNumber: 'GB987654321',
       address: '100 Bishopsgate, City of London',
+      city: 'London',
+      county: 'Greater London',
       postcode: 'EC2N 4AG',
       country: 'GB',
       currency: 'GBP',
+      contactEmail: 'finance@acme.co.uk',
+      contactPhone: '020 7946 0000',
+      vatScheme: 'STANDARD',
+      vatRegistered: true,
+      financialYearStart: 4,
+      isActive: true,
     },
   });
 
@@ -41,12 +50,21 @@ async function main() {
   const apexFirm = await prisma.firm.create({
     data: {
       name: 'Apex Digital Solutions Ltd',
+      legalName: 'Apex Digital Solutions Ltd',
       companyNumber: '11987654',
       vatNumber: 'GB123456789',
       address: '12 Northern Quarter, Manchester',
+      city: 'Manchester',
+      county: 'Greater Manchester',
       postcode: 'M4 1AL',
       country: 'GB',
       currency: 'GBP',
+      contactEmail: 'accounts@apexdigital.co.uk',
+      contactPhone: '0161 496 0500',
+      vatScheme: 'STANDARD',
+      vatRegistered: true,
+      financialYearStart: 4,
+      isActive: true,
     },
   });
 
@@ -79,6 +97,16 @@ async function main() {
       email: 'user@acme.co.uk',
       passwordHash,
       name: 'Sarah Connor (Staff)',
+      role: Role.USER,
+    },
+  });
+
+  const staffUser = await prisma.user.create({
+    data: {
+      firmId: acmeFirm.id,
+      email: 'staff@acme.co.uk',
+      passwordHash,
+      name: 'Emma Watson (Staff)',
       role: Role.USER,
     },
   });

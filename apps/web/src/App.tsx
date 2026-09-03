@@ -18,6 +18,7 @@ import { VatReturnDetail } from './pages/VatReturnDetail';
 import { Integrations } from './pages/Integrations';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
+import { Companies } from './pages/Companies';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -68,6 +69,7 @@ export function App() {
             <Route path="/integrations/hmrc" element={<Integrations />} />
             <Route path="/integrations/xero" element={<Integrations />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/companies" element={<Companies />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/users" element={<Settings />} />
             <Route path="/settings/firm" element={<Settings />} />

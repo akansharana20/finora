@@ -1,9 +1,9 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut } from 'lucide-react';
+import { LogOut, Building } from 'lucide-react';
 
 export const Header: React.FC = () => {
-  const { user, logout, isDemo } = useAuth();
+  const { user, logout, isDemo, activeFirmName } = useAuth();
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-20 shadow-xs">
@@ -11,8 +11,12 @@ export const Header: React.FC = () => {
         <h1 className="text-lg font-bold text-slate-800 tracking-tight">
           Finora Accounting V1
         </h1>
-        <span className="bg-slate-100 text-slate-600 text-xs font-semibold px-2 py-0.5 rounded border border-slate-200">
+        <span className="hidden sm:inline-block bg-slate-100 text-slate-600 text-xs font-semibold px-2 py-0.5 rounded border border-slate-200">
           UK GAAP & MTD VAT
+        </span>
+        <span className="hidden md:flex items-center space-x-1.5 bg-blue-50 text-blue-800 border border-blue-200 text-xs font-semibold px-2.5 py-0.5 rounded-md">
+          <Building size={12} className="text-blue-600" />
+          <span className="truncate max-w-[160px]">{activeFirmName || user?.firmName || 'Acme Consulting Ltd'}</span>
         </span>
         {isDemo && (
           <span
