@@ -262,4 +262,104 @@ export class ReportsService {
       expenses,
     };
   }
+
+  static async getVatReport(firmId: string, filter?: ReportFilterDto) {
+    const invoiceWhere: any = { firmId, status: { not: 'CANCELLED' } };
+    const expenseWhere: any = { firmId };
+
+    if (filter?.startDate || filter?.endDate) {
+      invoiceWhere.issueDate = {};
+      expenseWhere.date = {};
+      if (filter.startDate) {
+        invoiceWhere.issueDate.gte = new Date(filter.startDate);
+        expenseWhere.date.gte = new Date(filter.startDate);
+      }
+      if (filter.endDate) {
+        invoiceWhere.issueDate.lte = new Date(filter.endDate);
+        expenseWhere.date.lte = new Date(filter.endDate);
+      }
+    }
+
+    const invoices = await prisma.invoice.findMany({
+      where: invoiceWhere,
+      include: { customer: true, items: true },
+      orderBy: { issueDate: 'desc' },
+    });
+
+    const expenses = await prisma.expense.findMany({
+      where: expenseWhere,
+      include: { supplier: true },
+      orderBy: { date: 'desc' },
+    });
+
+    let totalOutputVat = new Decimal(0);
+    let totalSalesExVat = new Decimal(0);
+    let standardRateSales = new Decimal(0);
+    let reducedRateSales = new Decimal(0);
+    let zeroRateSales = new Decimal(0);
+
+    for (const inv of invoices) {
+      totalOutputVat = totalOutputVat.plus(inv.vatTotal);
+      totalSalesExVat = totalSalesExVat.plus(inv.subtotal);
+
+      for (const it of inv.items) {
+        const rate = Number(it.vatRate);
+        if (rate >= 19) {
+          standardRateSales = standardRateSales.plus(it.total);
+        } else if (rate > 0) {
+          reducedRateSales = reducedRateSales.plus(it.total);
+        } else {
+          zeroRateSales = zeroRateSales.plus(it.total);
+        }
+      }
+    }
+
+    let totalInputVat = new Decimal(0);
+    let totalPurchasesExVat = new Decimal(0);
+    for (const exp of expenses) {
+      totalInputVat = totalInputVat.plus(exp.vatAmount);
+      totalPurchasesExVat = totalPurchasesExVat.plus(exp.amount);
+    }
+
+    const netVatLiability = totalOutputVat.minus(totalInputVat);
+
+    return {
+      summary: {
+        outputVat: totalOutputVat.toFixed(2),
+        inputVat: totalInputVat.toFixed(2),
+        netVatLiability: netVatLiability.toFixed(2),
+        salesExVat: totalSalesExVat.toFixed(2),
+        purchasesExVat: totalPurchasesExVat.toFixed(2),
+        invoiceCount: invoices.length,
+        expenseCount: expenses.length,
+      },
+      rateBreakdown: [
+        { rate: 'Standard Rate (20%)', amount: standardRateSales.toFixed(2), description: 'Standard VAT sales' },
+        { rate: 'Reduced Rate (5%)', amount: reducedRateSales.toFixed(2), description: 'Reduced rate supplies' },
+        { rate: 'Zero Rate (0%)', amount: zeroRateSales.toFixed(2), description: 'Zero rated sales' },
+      ],
+      recentTransactions: [
+        ...invoices.slice(0, 10).map((inv) => ({
+          id: inv.id,
+          type: 'SALE' as const,
+          reference: inv.invoiceNumber,
+          contact: inv.customer.name,
+          date: inv.issueDate,
+          net: inv.subtotal.toString(),
+          vat: inv.vatTotal.toString(),
+          gross: inv.total.toString(),
+        })),
+        ...expenses.slice(0, 10).map((exp) => ({
+          id: exp.id,
+          type: 'PURCHASE' as const,
+          reference: exp.description,
+          contact: exp.supplier?.name || exp.category,
+          date: exp.date,
+          net: exp.amount.toString(),
+          vat: exp.vatAmount.toString(),
+          gross: exp.total.toString(),
+        })),
+      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 15),
+    };
+  }
 }

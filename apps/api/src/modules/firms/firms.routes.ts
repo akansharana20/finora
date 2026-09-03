@@ -1,52 +1,23 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
+import { FirmsController } from './firms.controller';
 import { authenticate } from '../../middleware/auth';
 import { authorizeRoles } from '../../middleware/rbac';
-import { sendSuccess } from '../../utils/response';
-import prisma from '../../config/db';
 import { Role } from '@prisma/client';
 
 const router = Router();
 
 router.use(authenticate);
 
-// Get Firm Profile
-router.get('/profile', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const firm = await prisma.firm.findUnique({
-      where: { id: req.firmId! },
-    });
-    return sendSuccess(res, firm);
-  } catch (error) {
-    return next(error);
-  }
-});
+// Current Firm Profile & Users
+router.get('/profile', FirmsController.getProfile);
+router.put('/profile', authorizeRoles(Role.ADMIN), FirmsController.updateProfile);
+router.get('/users', FirmsController.getUsers);
 
-// Update Firm Settings (Admin only)
-router.put('/profile', authorizeRoles(Role.ADMIN), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { name, companyNumber, vatNumber, address, postcode } = req.body;
-    const firm = await prisma.firm.update({
-      where: { id: req.firmId! },
-      data: { name, companyNumber, vatNumber, address, postcode },
-    });
-    return sendSuccess(res, firm, 'Firm details updated');
-  } catch (error) {
-    return next(error);
-  }
-});
-
-// List Firm Users
-router.get('/users', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const users = await prisma.user.findMany({
-      where: { firmId: req.firmId! },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
-      orderBy: { createdAt: 'desc' },
-    });
-    return sendSuccess(res, users);
-  } catch (error) {
-    return next(error);
-  }
-});
+// Admin-Only Multi-Company Management
+router.get('/', authorizeRoles(Role.ADMIN), FirmsController.list);
+router.post('/', authorizeRoles(Role.ADMIN), FirmsController.create);
+router.get('/:id', authorizeRoles(Role.ADMIN), FirmsController.getById);
+router.put('/:id', authorizeRoles(Role.ADMIN), FirmsController.update);
+router.patch('/:id/status', authorizeRoles(Role.ADMIN), FirmsController.setStatus);
 
 export default router;

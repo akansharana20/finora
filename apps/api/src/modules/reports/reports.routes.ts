@@ -9,5 +9,6 @@ router.use(authenticate);
 router.get('/dashboard', ReportsController.getDashboard);
 router.get('/revenue', ReportsController.getRevenue);
 router.get('/expense', ReportsController.getExpense);
+router.get('/vat', ReportsController.getVat);
 
 export default router;

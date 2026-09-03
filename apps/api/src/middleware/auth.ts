@@ -32,7 +32,14 @@ export function authenticate(req: Request, _res: Response, next: NextFunction) {
   try {
     const payload = jwt.verify(token, secret) as AuthUser;
     req.user = payload;
-    req.firmId = payload.firmId;
+
+    // Allow Admin users to scope requests to the selected active company via header
+    const requestedFirmId = req.headers['x-firm-id'] as string | undefined;
+    if (payload.role === Role.ADMIN && requestedFirmId && typeof requestedFirmId === 'string' && requestedFirmId.trim() !== '') {
+      req.firmId = requestedFirmId.trim();
+    } else {
+      req.firmId = payload.firmId;
+    }
     return next();
   } catch (error) {
     return next(new UnauthorizedError('Invalid or expired authentication token'));

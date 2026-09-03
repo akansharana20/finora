@@ -27,12 +27,17 @@ export const VatReturnDetail: React.FC = () => {
     setSubmitting(true);
     setError(null);
 
-    const res = await apiFetch(`/hmrc/returns/${periodKey}/submit`, { method: 'POST' });
+    const res = await apiFetch(`/vat/returns/${periodKey}/submit`, { method: 'POST' });
     setSubmitting(false);
 
     if (res.success && res.data) {
-      setVatReturn(res.data.vatReturn);
-      setReceipt(res.data.hmrcReceipt);
+      setVatReturn((prev: any) => ({
+        ...prev,
+        status: 'SUBMITTED',
+        submittedAt: res.data.submittedAt || new Date().toISOString(),
+        hmrcCorrelationId: res.data.receiptId || res.data.hmrcCorrelationId || `HMRC-DEMO-ACK-${Date.now()}`,
+      }));
+      setReceipt(res.data.hmrcReceipt || { correlationId: res.data.receiptId });
     } else {
       setError(res.error?.message || 'HMRC MTD Submission failed');
     }
@@ -58,7 +63,7 @@ export const VatReturnDetail: React.FC = () => {
                 vatReturn.status === 'SUBMITTED' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
               }`}
             >
-              {vatReturn.status}
+              {vatReturn.status === 'SUBMITTED' ? 'Submitted (Demo)' : vatReturn.status}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
@@ -73,7 +78,7 @@ export const VatReturnDetail: React.FC = () => {
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-lg text-xs transition-colors flex items-center space-x-2 shadow-xs disabled:opacity-50"
           >
             <Send size={16} />
-            <span>{submitting ? 'Submitting to HMRC...' : 'Submit Return to HMRC'}</span>
+            <span>{submitting ? 'Submitting to HMRC...' : 'Submit Return (Demo)'}</span>
           </button>
         )}
       </div>
@@ -85,8 +90,11 @@ export const VatReturnDetail: React.FC = () => {
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-start space-x-3 text-xs">
           <CheckCircle2 size={20} className="text-emerald-600 shrink-0 mt-0.5" />
           <div>
-            <div className="font-bold text-sm text-emerald-900">VAT Return Successfully Submitted to HMRC</div>
-            <div className="mt-1 space-y-0.5 font-mono text-[11px] text-emerald-700">
+            <div className="font-bold text-sm text-emerald-900">VAT Return Submitted (Demo Sandbox)</div>
+            <p className="text-[11px] text-emerald-700 mt-0.5">
+              Simulated submission completed. Test acknowledgment generated for Making Tax Digital compliance.
+            </p>
+            <div className="mt-1.5 space-y-0.5 font-mono text-[11px] text-emerald-800">
               <div>Correlation ID: {vatReturn.hmrcCorrelationId || receipt?.correlationId}</div>
               {receipt?.formBundleNumber && <div>Bundle Number: {receipt.formBundleNumber}</div>}
               {vatReturn.submittedAt && <div>Submitted At: {new Date(vatReturn.submittedAt).toLocaleString('en-GB')}</div>}

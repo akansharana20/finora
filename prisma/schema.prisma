@@ -56,16 +56,25 @@ enum VatReturnStatus {
 }
 
 model Firm {
-  id            String   @id @default(uuid())
-  name          String
-  companyNumber String?
-  vatNumber     String?
-  address       String?
-  postcode      String?
-  country       String   @default("GB")
-  currency      String   @default("GBP")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  name               String
+  legalName          String?
+  companyNumber      String?
+  vatNumber          String?
+  address            String?
+  city               String?
+  county             String?
+  postcode           String?
+  country            String   @default("GB")
+  currency           String   @default("GBP")
+  contactEmail       String?
+  contactPhone       String?
+  vatScheme          String   @default("STANDARD")
+  vatRegistered      Boolean  @default(true)
+  financialYearStart Int      @default(4)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   users           User[]
   customers       Customer[]

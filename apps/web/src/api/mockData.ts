@@ -18,14 +18,14 @@ export const DEMO_USERS: Record<string, DemoUser> = {
   'admin@acme.co.uk': {
     id: 'demo-user-admin',
     email: 'admin@acme.co.uk',
-    name: 'Sarah Connor',
+    name: 'Eleanor Vance (Admin)',
     role: 'ADMIN',
     firmId: 'demo-firm-acme',
     firmName: 'Acme Consulting Ltd',
     firm: {
       id: 'demo-firm-acme',
       name: 'Acme Consulting Ltd',
-      companyNumber: '09876543',
+      companyNumber: '08123456',
       vatNumber: 'GB987654321',
     },
     demo: true,
@@ -33,14 +33,14 @@ export const DEMO_USERS: Record<string, DemoUser> = {
   'accountant@acme.co.uk': {
     id: 'demo-user-accountant',
     email: 'accountant@acme.co.uk',
-    name: 'David Wright',
+    name: 'David Croft (Accountant)',
     role: 'ACCOUNTANT',
     firmId: 'demo-firm-acme',
     firmName: 'Acme Consulting Ltd',
     firm: {
       id: 'demo-firm-acme',
       name: 'Acme Consulting Ltd',
-      companyNumber: '09876543',
+      companyNumber: '08123456',
       vatNumber: 'GB987654321',
     },
     demo: true,
@@ -48,52 +48,85 @@ export const DEMO_USERS: Record<string, DemoUser> = {
   'user@acme.co.uk': {
     id: 'demo-user-staff',
     email: 'user@acme.co.uk',
-    name: 'Emma Watson',
+    name: 'Sarah Connor (Staff)',
     role: 'USER',
     firmId: 'demo-firm-acme',
     firmName: 'Acme Consulting Ltd',
     firm: {
       id: 'demo-firm-acme',
       name: 'Acme Consulting Ltd',
-      companyNumber: '09876543',
+      companyNumber: '08123456',
       vatNumber: 'GB987654321',
     },
     demo: true,
   },
   'staff@acme.co.uk': {
-    id: 'demo-user-staff',
+    id: 'demo-user-staff-2',
     email: 'staff@acme.co.uk',
-    name: 'Emma Watson',
+    name: 'Emma Watson (Staff)',
     role: 'USER',
     firmId: 'demo-firm-acme',
     firmName: 'Acme Consulting Ltd',
     firm: {
       id: 'demo-firm-acme',
       name: 'Acme Consulting Ltd',
-      companyNumber: '09876543',
+      companyNumber: '08123456',
       vatNumber: 'GB987654321',
     },
     demo: true,
   },
 };
 
-const STORAGE_KEY = 'finora_demo_db_v1';
+const STORAGE_KEY = 'finora_demo_db_v2';
 
 function getDefaultStore() {
   return {
-    firm: {
-      id: 'demo-firm-acme',
-      name: 'Acme Consulting Ltd',
-      companyNumber: '09876543',
-      vatNumber: 'GB987654321',
-      address: '100 Bishopsgate, London',
-      postcode: 'EC2N 4AG',
-      email: 'finance@acme.co.uk',
-      phone: '020 7946 0000',
-    },
+    firms: [
+      {
+        id: 'demo-firm-acme',
+        name: 'Acme Consulting Ltd',
+        legalName: 'Acme Consulting Ltd',
+        companyNumber: '08123456',
+        vatNumber: 'GB987654321',
+        address: '100 Bishopsgate, City of London',
+        city: 'London',
+        county: 'Greater London',
+        postcode: 'EC2N 4AG',
+        country: 'GB',
+        currency: 'GBP',
+        contactEmail: 'finance@acme.co.uk',
+        contactPhone: '020 7946 0000',
+        vatScheme: 'STANDARD',
+        vatRegistered: true,
+        financialYearStart: 4,
+        isActive: true,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        id: 'demo-firm-apex',
+        name: 'Apex Digital Solutions Ltd',
+        legalName: 'Apex Digital Solutions Ltd',
+        companyNumber: '11987654',
+        vatNumber: 'GB123456789',
+        address: '12 Northern Quarter',
+        city: 'Manchester',
+        county: 'Greater Manchester',
+        postcode: 'M4 1AL',
+        country: 'GB',
+        currency: 'GBP',
+        contactEmail: 'accounts@apexdigital.co.uk',
+        contactPhone: '0161 496 0500',
+        vatScheme: 'STANDARD',
+        vatRegistered: true,
+        financialYearStart: 4,
+        isActive: true,
+        createdAt: '2026-02-01T00:00:00.000Z',
+      },
+    ],
     customers: [
       {
         id: 'cust-1',
+        firmId: 'demo-firm-acme',
         name: 'TechNorth Solutions Ltd',
         companyName: 'TechNorth Solutions Ltd',
         email: 'billing@technorth.co.uk',
@@ -106,6 +139,7 @@ function getDefaultStore() {
       },
       {
         id: 'cust-2',
+        firmId: 'demo-firm-acme',
         name: 'Apex Retail Group',
         companyName: 'Apex Retail Group Ltd',
         email: 'finance@apexretail.co.uk',
@@ -118,6 +152,7 @@ function getDefaultStore() {
       },
       {
         id: 'cust-3',
+        firmId: 'demo-firm-acme',
         name: 'Thames Logistics Ltd',
         companyName: 'Thames Logistics Services',
         email: 'accounts@thameslogistics.co.uk',
@@ -130,6 +165,7 @@ function getDefaultStore() {
       },
       {
         id: 'cust-4',
+        firmId: 'demo-firm-acme',
         name: 'Highfield Media Ltd',
         companyName: 'Highfield Media Group',
         email: 'accounts@highfield.co.uk',
@@ -140,10 +176,24 @@ function getDefaultStore() {
         notes: 'Digital strategy client',
         outstandingBalance: 0.0,
       },
+      {
+        id: 'cust-apex-1',
+        firmId: 'demo-firm-apex',
+        name: 'Manchester Creative Works',
+        companyName: 'Manchester Creative Works Ltd',
+        email: 'contact@mcworks.co.uk',
+        phone: '0161 888 1234',
+        address: '88 Canal Street',
+        postcode: 'M1 3EZ',
+        vatNumber: 'GB554433221',
+        notes: 'Branding client',
+        outstandingBalance: 2400.0,
+      },
     ],
     suppliers: [
       {
         id: 'supp-1',
+        firmId: 'demo-firm-acme',
         name: 'CloudHost UK Ltd',
         companyName: 'CloudHost UK Services Ltd',
         email: 'billing@cloudhost.co.uk',
@@ -156,6 +206,7 @@ function getDefaultStore() {
       },
       {
         id: 'supp-2',
+        firmId: 'demo-firm-acme',
         name: 'Premier Office Supplies Ltd',
         companyName: 'Premier Office Supplies Ltd',
         email: 'orders@premieroffice.co.uk',
@@ -168,6 +219,7 @@ function getDefaultStore() {
       },
       {
         id: 'supp-3',
+        firmId: 'demo-firm-acme',
         name: 'City Legal & Advisory LLP',
         companyName: 'City Legal & Advisory LLP',
         email: 'billing@citylegal.co.uk',
@@ -178,10 +230,24 @@ function getDefaultStore() {
         notes: 'Legal & audit advisors',
         totalExpenses: 3600.0,
       },
+      {
+        id: 'supp-apex-1',
+        firmId: 'demo-firm-apex',
+        name: 'Northern Telecoms Group',
+        companyName: 'Northern Telecoms Ltd',
+        email: 'support@northerntel.co.uk',
+        phone: '0161 777 9999',
+        address: '50 Oxford Road',
+        postcode: 'M1 5QA',
+        vatNumber: 'GB332211009',
+        notes: 'Fibre broadband & VOIP provider',
+        totalExpenses: 600.0,
+      },
     ],
     invoices: [
       {
         id: 'inv-1',
+        firmId: 'demo-firm-acme',
         invoiceNumber: 'INV-2026-101',
         customerId: 'cust-1',
         customerName: 'TechNorth Solutions Ltd',
@@ -218,6 +284,7 @@ function getDefaultStore() {
       },
       {
         id: 'inv-2',
+        firmId: 'demo-firm-acme',
         invoiceNumber: 'INV-2026-102',
         customerId: 'cust-2',
         customerName: 'Apex Retail Group',
@@ -266,6 +333,7 @@ function getDefaultStore() {
       },
       {
         id: 'inv-3',
+        firmId: 'demo-firm-acme',
         invoiceNumber: 'INV-2026-103',
         customerId: 'cust-3',
         customerName: 'Thames Logistics Ltd',
@@ -302,6 +370,7 @@ function getDefaultStore() {
       },
       {
         id: 'inv-4',
+        firmId: 'demo-firm-acme',
         invoiceNumber: 'INV-2026-104',
         customerId: 'cust-4',
         customerName: 'Highfield Media Ltd',
@@ -348,51 +417,110 @@ function getDefaultStore() {
           },
         ],
       },
+      {
+        id: 'inv-apex-1',
+        firmId: 'demo-firm-apex',
+        invoiceNumber: 'APX-2026-001',
+        customerId: 'cust-apex-1',
+        customerName: 'Manchester Creative Works',
+        customer: {
+          id: 'cust-apex-1',
+          name: 'Manchester Creative Works',
+          companyName: 'Manchester Creative Works Ltd',
+          address: '88 Canal Street',
+          postcode: 'M1 3EZ',
+          vatNumber: 'GB554433221',
+        },
+        status: 'SENT',
+        issueDate: '2026-08-10',
+        dueDate: '2026-09-10',
+        subtotal: 2000.0,
+        vatTotal: 400.0,
+        total: 2400.0,
+        amountPaid: 0.0,
+        balanceDue: 2400.0,
+        notes: 'Digital Brand Transformation.',
+        items: [
+          {
+            id: 'item-apx-1',
+            description: 'Brand Identity Design',
+            quantity: 1,
+            unitPrice: 2000.0,
+            vatRate: 20,
+            subtotal: 2000.0,
+            vatAmount: 400.0,
+            total: 2400.0,
+          },
+        ],
+        payments: [],
+      },
     ],
     expenses: [
       {
         id: 'exp-1',
+        firmId: 'demo-firm-acme',
         expenseNumber: 'EXP-2026-01',
         supplierId: 'supp-1',
         supplierName: 'CloudHost UK Ltd',
         category: 'IT Infrastructure',
         description: 'AWS & UK Cloud Server Hosting',
         date: '2026-08-10',
-        amount: 1440.0,
-        vatAmount: 240.0,
+        amount: 1200.0,
         vatRate: 20,
-        status: 'APPROVED',
+        vatAmount: 240.0,
+        total: 1440.0,
+        paymentStatus: 'PAID',
       },
       {
         id: 'exp-2',
+        firmId: 'demo-firm-acme',
         expenseNumber: 'EXP-2026-02',
         supplierId: 'supp-2',
         supplierName: 'Premier Office Supplies Ltd',
         category: 'Office Expenses',
         description: 'Ergonomic Chairs & Desk Setup',
         date: '2026-08-14',
-        amount: 520.0,
-        vatAmount: 86.67,
+        amount: 433.33,
         vatRate: 20,
-        status: 'APPROVED',
+        vatAmount: 86.67,
+        total: 520.0,
+        paymentStatus: 'PAID',
       },
       {
         id: 'exp-3',
+        firmId: 'demo-firm-acme',
         expenseNumber: 'EXP-2026-03',
         supplierId: 'supp-3',
         supplierName: 'City Legal & Advisory LLP',
         category: 'Professional Fees',
         description: 'Annual Compliance Audit & Legal Advisory',
         date: '2026-08-05',
-        amount: 3600.0,
-        vatAmount: 600.0,
+        amount: 3000.0,
         vatRate: 20,
-        status: 'APPROVED',
+        vatAmount: 600.0,
+        total: 3600.0,
+        paymentStatus: 'PAID',
+      },
+      {
+        id: 'exp-apex-1',
+        firmId: 'demo-firm-apex',
+        expenseNumber: 'APX-EXP-01',
+        supplierId: 'supp-apex-1',
+        supplierName: 'Northern Telecoms Group',
+        category: 'Utilities',
+        description: 'Fibre Internet & Telephone Service',
+        date: '2026-08-01',
+        amount: 500.0,
+        vatRate: 20,
+        vatAmount: 100.0,
+        total: 600.0,
+        paymentStatus: 'PAID',
       },
     ],
     payments: [
       {
         id: 'pmt-1',
+        firmId: 'demo-firm-acme',
         invoiceId: 'inv-2',
         invoiceNumber: 'INV-2026-102',
         customerName: 'Apex Retail Group',
@@ -404,6 +532,7 @@ function getDefaultStore() {
       },
       {
         id: 'pmt-2',
+        firmId: 'demo-firm-acme',
         invoiceId: 'inv-4',
         invoiceNumber: 'INV-2026-104',
         customerName: 'Highfield Media Ltd',
@@ -429,22 +558,25 @@ function getDefaultStore() {
     auditLogs: [
       {
         id: 'audit-1',
+        firmId: 'demo-firm-acme',
         action: 'INVOICE_CREATED',
         description: 'Created invoice INV-2026-103 for Thames Logistics Ltd (£1,440.00)',
-        user: 'Sarah Connor',
+        user: 'Eleanor Vance',
         createdAt: '2026-08-20T10:15:00.000Z',
         timestamp: '2026-08-20T10:15:00.000Z',
       },
       {
         id: 'audit-2',
+        firmId: 'demo-firm-acme',
         action: 'PAYMENT_RECORDED',
         description: 'Recorded £6,000.00 BACS payment for INV-2026-102',
-        user: 'David Wright',
+        user: 'David Croft',
         createdAt: '2026-08-02T14:30:00.000Z',
         timestamp: '2026-08-02T14:30:00.000Z',
       },
       {
         id: 'audit-3',
+        firmId: 'demo-firm-acme',
         action: 'EXPENSE_APPROVED',
         description: 'Approved expense EXP-2026-01 for CloudHost UK Ltd (£1,440.00)',
         user: 'Emma Watson',
@@ -453,48 +585,15 @@ function getDefaultStore() {
       },
       {
         id: 'audit-4',
+        firmId: 'demo-firm-acme',
         action: 'HMRC_MTD_VERIFIED',
         description: 'HMRC Making Tax Digital OAuth 2.0 connection token refreshed',
-        user: 'Sarah Connor',
+        user: 'Eleanor Vance',
         createdAt: '2026-08-01T09:00:00.000Z',
         timestamp: '2026-08-01T09:00:00.000Z',
       },
     ],
-    vatReturns: {
-      '2026-Q3': {
-        periodKey: '2026-Q3',
-        dateFrom: '2026-07-01',
-        dateTo: '2026-09-30',
-        dueDate: '2026-11-07',
-        status: 'OPEN',
-        box1: 2340.0,
-        box2: 0.0,
-        box3: 2340.0,
-        box4: 926.67,
-        box5: 1413.33,
-        box6: 11700.0,
-        box7: 4633.33,
-        box8: 0.0,
-        box9: 0.0,
-      },
-      '2026-Q2': {
-        periodKey: '2026-Q2',
-        dateFrom: '2026-04-01',
-        dateTo: '2026-06-30',
-        dueDate: '2026-08-07',
-        status: 'SUBMITTED',
-        box1: 1500.0,
-        box2: 0.0,
-        box3: 1500.0,
-        box4: 450.0,
-        box5: 1050.0,
-        box6: 7500.0,
-        box7: 2250.0,
-        box8: 0.0,
-        box9: 0.0,
-        submittedAt: '2026-08-05T15:20:00.000Z',
-      },
-    },
+    vatReturns: {} as Record<string, any>,
   };
 }
 
@@ -527,6 +626,16 @@ export function handleMockApi(
   const path = url.pathname;
   const store = getStore();
 
+  // Resolve Active Company Scope from header or localStorage
+  const headerFirmId = (options.headers as any)?.['x-firm-id'];
+  const currentFirmId = headerFirmId || localStorage.getItem('finora_active_firm_id') || 'demo-firm-acme';
+
+  // Find current firm object
+  let currentFirm = (store.firms || []).find((f: any) => f.id === currentFirmId);
+  if (!currentFirm) {
+    currentFirm = store.firms?.[0] || getDefaultStore().firms[0];
+  }
+
   let body: any = {};
   if (options.body) {
     try {
@@ -540,9 +649,18 @@ export function handleMockApi(
   if (path === '/auth/me') {
     const savedUser = localStorage.getItem('finora_user');
     if (savedUser) {
-      return { success: true, data: JSON.parse(savedUser) };
+      const parsed = JSON.parse(savedUser);
+      return {
+        success: true,
+        data: {
+          ...parsed,
+          firmId: currentFirm.id,
+          firmName: currentFirm.name,
+          firm: currentFirm,
+        },
+      };
     }
-    return { success: true, data: DEMO_USERS['admin@acme.co.uk'] };
+    return { success: true, data: { ...DEMO_USERS['admin@acme.co.uk'], firmId: currentFirm.id, firmName: currentFirm.name, firm: currentFirm } };
   }
 
   // Auth login
@@ -555,7 +673,12 @@ export function handleMockApi(
       return {
         success: true,
         data: {
-          user,
+          user: {
+            ...user,
+            firmId: currentFirm.id,
+            firmName: currentFirm.name,
+            firm: currentFirm,
+          },
           token: `demo-jwt-token-${user.role.toLowerCase()}`,
         },
       };
@@ -569,50 +692,182 @@ export function handleMockApi(
     };
   }
 
+  // ==========================================
+  // COMPANY MANAGEMENT (Firms)
+  // ==========================================
+  if (path === '/firms' || path === '/firms/') {
+    if (method === 'GET') {
+      const enrichedFirms = (store.firms || []).map((f: any) => {
+        const invCount = store.invoices.filter((i: any) => (i.firmId || 'demo-firm-acme') === f.id).length;
+        const expCount = store.expenses.filter((e: any) => (e.firmId || 'demo-firm-acme') === f.id).length;
+        const custCount = store.customers.filter((c: any) => (c.firmId || 'demo-firm-acme') === f.id).length;
+        return {
+          ...f,
+          _count: {
+            invoices: invCount,
+            expenses: expCount,
+            customers: custCount,
+            users: f.id === 'demo-firm-acme' ? 3 : 1,
+          },
+        };
+      });
+      return { success: true, data: enrichedFirms };
+    }
+
+    if (method === 'POST') {
+      const newFirm = {
+        id: `firm-${Date.now()}`,
+        name: body.name || 'New Company Ltd',
+        legalName: body.legalName || body.name || 'New Company Ltd',
+        companyNumber: body.companyNumber || '',
+        vatNumber: body.vatNumber || '',
+        address: body.address || '',
+        city: body.city || '',
+        county: body.county || '',
+        postcode: body.postcode || '',
+        country: body.country || 'GB',
+        currency: body.currency || 'GBP',
+        contactEmail: body.contactEmail || '',
+        contactPhone: body.contactPhone || '',
+        vatScheme: body.vatScheme || 'STANDARD',
+        vatRegistered: body.vatRegistered !== undefined ? body.vatRegistered : true,
+        financialYearStart: body.financialYearStart || 4,
+        isActive: body.isActive !== undefined ? body.isActive : true,
+        createdAt: new Date().toISOString(),
+      };
+
+      store.firms.unshift(newFirm);
+
+      store.auditLogs.unshift({
+        id: `audit-${Date.now()}`,
+        firmId: newFirm.id,
+        action: 'FIRM_CREATED',
+        description: `Created new company: ${newFirm.name}`,
+        user: 'Admin',
+        createdAt: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
+      });
+
+      saveStore(store);
+      return { success: true, data: newFirm, message: 'Company created successfully' };
+    }
+  }
+
+  if (path === '/firms/profile') {
+    if (method === 'PUT' || method === 'POST') {
+      const idx = store.firms.findIndex((f: any) => f.id === currentFirmId);
+      if (idx !== -1) {
+        store.firms[idx] = { ...store.firms[idx], ...body };
+        saveStore(store);
+        return { success: true, data: store.firms[idx], message: 'Firm details updated' };
+      }
+    }
+    return { success: true, data: currentFirm };
+  }
+
+  if (path === '/firms/users') {
+    return {
+      success: true,
+      data: [
+        { id: 'usr-1', name: 'Eleanor Vance', email: 'admin@acme.co.uk', role: 'ADMIN', createdAt: '2026-01-01' },
+        { id: 'usr-2', name: 'David Croft', email: 'accountant@acme.co.uk', role: 'ACCOUNTANT', createdAt: '2026-01-05' },
+        { id: 'usr-3', name: 'Sarah Connor', email: 'user@acme.co.uk', role: 'USER', createdAt: '2026-01-10' },
+        { id: 'usr-4', name: 'Emma Watson', email: 'staff@acme.co.uk', role: 'USER', createdAt: '2026-01-15' },
+      ],
+    };
+  }
+
+  if (path.startsWith('/firms/') && path.endsWith('/status')) {
+    const firmId = path.split('/')[2];
+    const firm = store.firms.find((f: any) => f.id === firmId);
+    if (firm) {
+      firm.isActive = Boolean(body.isActive);
+      saveStore(store);
+      return { success: true, data: firm, message: `Company ${firm.isActive ? 'activated' : 'deactivated'} successfully` };
+    }
+    return { success: false, error: { message: 'Company not found' } };
+  }
+
+  if (path.startsWith('/firms/') && path.split('/').length === 3) {
+    const firmId = path.split('/')[2];
+    const firm = store.firms.find((f: any) => f.id === firmId);
+    if (firm) {
+      if (method === 'PUT') {
+        Object.assign(firm, body);
+        saveStore(store);
+        return { success: true, data: firm, message: 'Company updated successfully' };
+      }
+      return { success: true, data: firm };
+    }
+    return { success: false, error: { message: 'Company not found' } };
+  }
+
+  // ==========================================
+  // SCOPED COMPANY TRANSACTIONS
+  // ==========================================
+  const firmInvoices = store.invoices.filter((i: any) => (i.firmId || 'demo-firm-acme') === currentFirmId);
+  const firmExpenses = store.expenses.filter((e: any) => (e.firmId || 'demo-firm-acme') === currentFirmId);
+  const firmCustomers = store.customers.filter((c: any) => (c.firmId || 'demo-firm-acme') === currentFirmId);
+  const firmSuppliers = store.suppliers.filter((s: any) => (s.firmId || 'demo-firm-acme') === currentFirmId);
+  const firmPayments = store.payments.filter((p: any) => (p.firmId || 'demo-firm-acme') === currentFirmId);
+  const firmAuditLogs = (store.auditLogs || []).filter((l: any) => (l.firmId || 'demo-firm-acme') === currentFirmId);
+
   // Dashboard reports
   if (path === '/reports/dashboard') {
-    const totalRevenue = store.invoices.reduce((acc: number, i: any) => acc + (i.status !== 'CANCELLED' ? i.total : 0), 0);
-    const invoiceCount = store.invoices.length;
-    const unpaidInvoices = store.invoices.filter((i: any) => i.status !== 'PAID' && i.status !== 'CANCELLED');
-    const totalOutstanding = unpaidInvoices.reduce((acc: number, i: any) => acc + i.balanceDue, 0);
+    const activeInvoices = firmInvoices.filter((i: any) => i.status !== 'CANCELLED');
+    const totalRevenue = activeInvoices.reduce((acc: number, i: any) => acc + i.total, 0);
+    const invoiceCount = activeInvoices.length;
+
+    const unpaidInvoices = activeInvoices.filter((i: any) => i.status !== 'PAID');
+    const totalOutstanding = unpaidInvoices.reduce((acc: number, i: any) => acc + Number(i.balanceDue || 0), 0);
     const unpaidCount = unpaidInvoices.length;
-    const overdueInvoices = store.invoices.filter((i: any) => i.status === 'OVERDUE');
-    const totalOverdue = overdueInvoices.reduce((acc: number, i: any) => acc + i.balanceDue, 0);
+
+    const now = new Date();
+    const overdueInvoices = unpaidInvoices.filter((i: any) => new Date(i.dueDate) < now);
+    const totalOverdue = overdueInvoices.reduce((acc: number, i: any) => acc + Number(i.balanceDue || 0), 0);
     const overdueCount = overdueInvoices.length;
-    const totalExpenses = store.expenses.reduce((acc: number, e: any) => acc + e.amount, 0);
-    const totalVatSales = store.invoices.reduce((acc: number, i: any) => acc + (i.status !== 'CANCELLED' ? i.vatTotal : 0), 0);
-    const totalVatExpenses = store.expenses.reduce((acc: number, e: any) => acc + e.vatAmount, 0);
-    const estimatedVatLiability = totalVatSales - totalVatExpenses;
-    const totalCashCollected = store.payments.reduce((acc: number, p: any) => acc + p.amount, 0);
+
+    const totalExpenses = firmExpenses.reduce((acc: number, e: any) => acc + Number(e.total || e.amount || 0), 0);
+
+    // VAT Liability = Output VAT (Sales) - Input VAT (Purchases)
+    const totalOutputVat = activeInvoices.reduce((acc: number, i: any) => acc + Number(i.vatTotal || 0), 0);
+    const totalInputVat = firmExpenses.reduce((acc: number, e: any) => acc + Number(e.vatAmount || 0), 0);
+    const estimatedVatLiability = totalOutputVat - totalInputVat;
+
+    const totalCashCollected = firmPayments.reduce((acc: number, p: any) => acc + Number(p.amount || 0), 0);
+
+    const attentionItems = [];
+    if (overdueCount > 0) {
+      attentionItems.push({
+        id: 'att-overdue',
+        title: `${overdueCount} Overdue Customer Invoice${overdueCount > 1 ? 's' : ''}`,
+        message: `Total overdue balance of £${totalOverdue.toFixed(2)} requires immediate action`,
+        severity: 'error',
+      });
+    }
+
+    attentionItems.push({
+      id: 'att-vat',
+      title: 'HMRC MTD VAT Return 2026-Q3 Due',
+      message: `Current Net VAT Liability is £${estimatedVatLiability.toFixed(2)}. Due 07 Nov 2026.`,
+      severity: estimatedVatLiability > 0 ? 'warning' : 'info',
+    });
 
     return {
       success: true,
       data: {
         kpis: {
-          totalRevenue,
+          totalRevenue: totalRevenue.toFixed(2),
           invoiceCount,
-          totalOutstanding,
+          totalOutstanding: totalOutstanding.toFixed(2),
           unpaidCount,
-          totalOverdue,
+          totalOverdue: totalOverdue.toFixed(2),
           overdueCount,
-          totalExpenses,
-          estimatedVatLiability,
-          totalCashCollected,
+          totalExpenses: totalExpenses.toFixed(2),
+          estimatedVatLiability: estimatedVatLiability.toFixed(2),
+          totalCashCollected: totalCashCollected.toFixed(2),
         },
-        attentionItems: [
-          {
-            id: 'att-1',
-            title: 'HMRC MTD VAT Return 2026-Q3 Due',
-            message: 'VAT return period ends 30 Sept 2026. Estimated net payable: £1,413.33',
-            severity: 'warning',
-          },
-          {
-            id: 'att-2',
-            title: `${overdueCount} Overdue Customer Invoices`,
-            message: `Total outstanding overdue balance: £${totalOverdue.toFixed(2)}`,
-            severity: 'error',
-          },
-        ],
+        attentionItems,
         overdueInvoices: overdueInvoices.map((inv: any) => ({
           id: inv.id,
           invoiceNumber: inv.invoiceNumber,
@@ -621,17 +876,17 @@ export function handleMockApi(
           balanceDue: inv.balanceDue,
         })),
         monthlyTrend: [
-          { month: 'Apr', revenue: 4200, expenses: 1800 },
-          { month: 'May', revenue: 5100, expenses: 2100 },
-          { month: 'Jun', revenue: 3000, expenses: 1500 },
-          { month: 'Jul', revenue: 6000, expenses: 2200 },
-          { month: 'Aug', revenue: 5040, expenses: 5560 },
+          { month: 'Apr', revenue: Math.round(totalRevenue * 0.15), expenses: Math.round(totalExpenses * 0.12) },
+          { month: 'May', revenue: Math.round(totalRevenue * 0.2), expenses: Math.round(totalExpenses * 0.18) },
+          { month: 'Jun', revenue: Math.round(totalRevenue * 0.25), expenses: Math.round(totalExpenses * 0.2) },
+          { month: 'Jul', revenue: Math.round(totalRevenue * 0.22), expenses: Math.round(totalExpenses * 0.25) },
+          { month: 'Aug', revenue: Math.round(totalRevenue * 0.18), expenses: Math.round(totalExpenses * 0.25) },
         ],
-        recentActivity: (store.auditLogs || []).map((log: any) => ({
+        recentActivity: firmAuditLogs.slice(0, 8).map((log: any) => ({
           id: log.id,
           action: log.action,
           user: typeof log.user === 'object' ? log.user?.name || log.user?.email || 'System' : (log.user || 'System'),
-          description: log.description,
+          description: log.description || log.metadata,
           timestamp: log.timestamp || log.createdAt,
         })),
       },
@@ -642,7 +897,7 @@ export function handleMockApi(
   if (path === '/customers') {
     if (method === 'GET') {
       const searchParam = url.searchParams.get('search');
-      let result = store.customers;
+      let result = firmCustomers;
       if (searchParam) {
         const q = searchParam.toLowerCase();
         result = result.filter(
@@ -658,6 +913,7 @@ export function handleMockApi(
     if (method === 'POST') {
       const newCust = {
         id: `cust-${Date.now()}`,
+        firmId: currentFirmId,
         name: body.name || 'New Customer',
         companyName: body.companyName || body.name,
         email: body.email || '',
@@ -676,9 +932,9 @@ export function handleMockApi(
 
   if (path.startsWith('/customers/')) {
     const custId = path.split('/')[2];
-    const cust = store.customers.find((c: any) => c.id === custId);
+    const cust = firmCustomers.find((c: any) => c.id === custId);
     if (cust) {
-      const custInvoices = store.invoices.filter((i: any) => i.customerId === custId);
+      const custInvoices = firmInvoices.filter((i: any) => i.customerId === custId);
       return { success: true, data: { ...cust, invoices: custInvoices } };
     }
     return { success: false, error: { message: 'Customer not found' } };
@@ -688,7 +944,7 @@ export function handleMockApi(
   if (path === '/suppliers') {
     if (method === 'GET') {
       const searchParam = url.searchParams.get('search');
-      let result = store.suppliers;
+      let result = firmSuppliers;
       if (searchParam) {
         const q = searchParam.toLowerCase();
         result = result.filter(
@@ -703,6 +959,7 @@ export function handleMockApi(
     if (method === 'POST') {
       const newSupp = {
         id: `supp-${Date.now()}`,
+        firmId: currentFirmId,
         name: body.name || 'New Supplier',
         companyName: body.companyName || body.name,
         email: body.email || '',
@@ -721,9 +978,9 @@ export function handleMockApi(
 
   if (path.startsWith('/suppliers/')) {
     const suppId = path.split('/')[2];
-    const supp = store.suppliers.find((s: any) => s.id === suppId);
+    const supp = firmSuppliers.find((s: any) => s.id === suppId);
     if (supp) {
-      const suppExpenses = store.expenses.filter((e: any) => e.supplierId === suppId);
+      const suppExpenses = firmExpenses.filter((e: any) => e.supplierId === suppId);
       return { success: true, data: { ...supp, expenses: suppExpenses } };
     }
     return { success: false, error: { message: 'Supplier not found' } };
@@ -733,40 +990,45 @@ export function handleMockApi(
   if (path === '/invoices') {
     if (method === 'GET') {
       const statusParam = url.searchParams.get('status');
-      let result = store.invoices;
+      let result = firmInvoices;
       if (statusParam) {
         result = result.filter((i: any) => i.status === statusParam);
       }
       return { success: true, data: result };
     }
+
     if (method === 'POST') {
-      const cust = store.customers.find((c: any) => c.id === body.customerId);
+      const cust = firmCustomers.find((c: any) => c.id === body.customerId);
       const items = (body.items || []).map((it: any, idx: number) => {
-        const lineSub = Math.round(it.quantity * it.unitPrice * 100) / 100;
-        const lineVat = Math.round(lineSub * (it.vatRate / 100) * 100) / 100;
+        const qty = Number(it.quantity) || 1;
+        const price = Number(it.unitPrice) || 0;
+        const rate = Number(it.vatRate) !== undefined ? Number(it.vatRate) : 20;
+        const lineSub = Math.round(qty * price * 100) / 100;
+        const lineVat = Math.round(lineSub * (rate / 100) * 100) / 100;
         return {
           id: `item-${Date.now()}-${idx}`,
           description: it.description,
-          quantity: it.quantity,
-          unitPrice: it.unitPrice,
-          vatRate: it.vatRate,
+          quantity: qty,
+          unitPrice: price,
+          vatRate: rate,
           subtotal: lineSub,
           vatAmount: lineVat,
           total: lineSub + lineVat,
         };
       });
 
-      const subtotal = items.reduce((acc: number, it: any) => acc + it.subtotal, 0);
-      const vatTotal = items.reduce((acc: number, it: any) => acc + it.vatAmount, 0);
-      const total = subtotal + vatTotal;
+      const subtotal = Math.round(items.reduce((acc: number, it: any) => acc + it.subtotal, 0) * 100) / 100;
+      const vatTotal = Math.round(items.reduce((acc: number, it: any) => acc + it.vatAmount, 0) * 100) / 100;
+      const total = Math.round((subtotal + vatTotal) * 100) / 100;
 
       const newInv = {
         id: `inv-${Date.now()}`,
+        firmId: currentFirmId,
         invoiceNumber: body.invoiceNumber || `INV-2026-${Math.floor(100 + Math.random() * 900)}`,
         customerId: body.customerId,
         customerName: cust ? cust.name : 'Sample Customer',
         customer: cust || { name: 'Sample Customer' },
-        status: 'ISSUED',
+        status: 'SENT',
         issueDate: body.issueDate || new Date().toISOString().split('T')[0],
         dueDate: body.dueDate || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
         subtotal,
@@ -780,15 +1042,16 @@ export function handleMockApi(
       };
 
       if (cust) {
-        cust.outstandingBalance += total;
+        cust.outstandingBalance = (cust.outstandingBalance || 0) + total;
       }
 
       store.invoices.unshift(newInv);
       store.auditLogs.unshift({
         id: `audit-${Date.now()}`,
+        firmId: currentFirmId,
         action: 'INVOICE_CREATED',
         description: `Created invoice ${newInv.invoiceNumber} for ${newInv.customerName} (£${total.toFixed(2)})`,
-        user: { name: 'Demo User', email: 'demo@acme.co.uk' },
+        user: 'Demo User',
         createdAt: new Date().toISOString(),
         timestamp: new Date().toISOString(),
       });
@@ -798,10 +1061,10 @@ export function handleMockApi(
     }
   }
 
-  // Invoice Detail & Status update
+  // Invoice status & detail
   if (path.startsWith('/invoices/') && path.endsWith('/status')) {
     const invId = path.split('/')[2];
-    const inv = store.invoices.find((i: any) => i.id === invId);
+    const inv = firmInvoices.find((i: any) => i.id === invId);
     if (inv) {
       inv.status = body.status;
       saveStore(store);
@@ -811,7 +1074,7 @@ export function handleMockApi(
 
   if (path.startsWith('/invoices/')) {
     const invId = path.split('/')[2];
-    const inv = store.invoices.find((i: any) => i.id === invId);
+    const inv = firmInvoices.find((i: any) => i.id === invId);
     if (inv) {
       return { success: true, data: inv };
     }
@@ -821,38 +1084,54 @@ export function handleMockApi(
   // Expenses
   if (path === '/expenses') {
     if (method === 'GET') {
-      return { success: true, data: store.expenses };
+      let result = firmExpenses;
+      const catParam = url.searchParams.get('category');
+      const searchParam = url.searchParams.get('search');
+      if (catParam) {
+        result = result.filter((e: any) => e.category === catParam);
+      }
+      if (searchParam) {
+        const q = searchParam.toLowerCase();
+        result = result.filter((e: any) => e.description.toLowerCase().includes(q) || e.supplierName?.toLowerCase().includes(q));
+      }
+      return { success: true, data: result };
     }
+
     if (method === 'POST') {
-      const supp = store.suppliers.find((s: any) => s.id === body.supplierId);
-      const amt = Number(body.amount) || 0;
-      const vatRate = Number(body.vatRate) || 20;
-      const vatAmount = Math.round((amt * (vatRate / 120)) * 100) / 100;
+      const supp = firmSuppliers.find((s: any) => s.id === body.supplierId);
+      const netAmount = Number(body.amount) || 0;
+      const vatRate = Number(body.vatRate) !== undefined ? Number(body.vatRate) : 20;
+      // Formula: VAT = Net x (rate / 100), Gross = Net + VAT
+      const vatAmount = Math.round(netAmount * (vatRate / 100) * 100) / 100;
+      const grossTotal = Math.round((netAmount + vatAmount) * 100) / 100;
 
       const newExp = {
         id: `exp-${Date.now()}`,
+        firmId: currentFirmId,
         expenseNumber: `EXP-2026-${Math.floor(10 + Math.random() * 90)}`,
         supplierId: body.supplierId || (supp ? supp.id : null),
         supplierName: supp ? supp.name : body.supplierName || 'General Supplier',
         category: body.category || 'General Operating',
         description: body.description || 'Business Expense',
         date: body.date || new Date().toISOString().split('T')[0],
-        amount: amt,
-        vatAmount,
+        amount: netAmount,
         vatRate,
-        status: 'APPROVED',
+        vatAmount,
+        total: grossTotal,
+        paymentStatus: body.paymentStatus || 'PAID',
       };
 
       if (supp) {
-        supp.totalExpenses += amt;
+        supp.totalExpenses = (supp.totalExpenses || 0) + grossTotal;
       }
 
       store.expenses.unshift(newExp);
       store.auditLogs.unshift({
         id: `audit-${Date.now()}`,
-        action: 'EXPENSE_CREATED',
-        description: `Recorded expense ${newExp.expenseNumber} for ${newExp.supplierName} (£${amt.toFixed(2)})`,
-        user: { name: 'Demo User', email: 'demo@acme.co.uk' },
+        firmId: currentFirmId,
+        action: 'EXPENSE_RECORDED',
+        description: `Recorded expense ${newExp.expenseNumber} for ${newExp.supplierName} (£${grossTotal.toFixed(2)})`,
+        user: 'Demo User',
         createdAt: new Date().toISOString(),
         timestamp: new Date().toISOString(),
       });
@@ -872,27 +1151,28 @@ export function handleMockApi(
   // Payments
   if (path === '/payments') {
     if (method === 'GET') {
-      return { success: true, data: store.payments };
+      return { success: true, data: firmPayments };
     }
     if (method === 'POST') {
-      const inv = store.invoices.find((i: any) => i.id === body.invoiceId);
+      const inv = firmInvoices.find((i: any) => i.id === body.invoiceId);
       const amount = Number(body.amount) || 0;
 
       const newPmt = {
         id: `pmt-${Date.now()}`,
-        invoiceId: body.invoiceId,
-        invoiceNumber: inv ? inv.invoiceNumber : 'INV-UNKNOWN',
-        customerName: inv ? inv.customerName : 'Customer',
+        firmId: currentFirmId,
+        invoiceId: body.invoiceId || null,
+        invoiceNumber: inv ? inv.invoiceNumber : body.reference || 'REF-INTERNAL',
+        customerName: inv ? inv.customerName : body.contactName || 'Customer',
         amount,
-        paymentDate: new Date().toISOString().split('T')[0],
+        paymentDate: body.paymentDate || new Date().toISOString().split('T')[0],
         method: body.method || 'BANK_TRANSFER',
         reference: body.reference || `TRX-${Date.now()}`,
         status: 'CONFIRMED',
       };
 
       if (inv) {
-        inv.amountPaid += amount;
-        inv.balanceDue = Math.max(0, inv.total - inv.amountPaid);
+        inv.amountPaid = Math.round(((inv.amountPaid || 0) + amount) * 100) / 100;
+        inv.balanceDue = Math.max(0, Math.round((inv.total - inv.amountPaid) * 100) / 100);
         if (inv.balanceDue === 0) {
           inv.status = 'PAID';
         } else {
@@ -901,18 +1181,19 @@ export function handleMockApi(
         inv.payments = inv.payments || [];
         inv.payments.unshift(newPmt);
 
-        const cust = store.customers.find((c: any) => c.id === inv.customerId);
+        const cust = firmCustomers.find((c: any) => c.id === inv.customerId);
         if (cust) {
-          cust.outstandingBalance = Math.max(0, cust.outstandingBalance - amount);
+          cust.outstandingBalance = Math.max(0, Math.round(((cust.outstandingBalance || 0) - amount) * 100) / 100);
         }
       }
 
       store.payments.unshift(newPmt);
       store.auditLogs.unshift({
         id: `audit-${Date.now()}`,
+        firmId: currentFirmId,
         action: 'PAYMENT_RECORDED',
-        description: `Recorded payment of £${amount.toFixed(2)} for invoice ${newPmt.invoiceNumber}`,
-        user: { name: 'Demo User', email: 'demo@acme.co.uk' },
+        description: `Recorded payment of £${amount.toFixed(2)} for ${newPmt.invoiceNumber}`,
+        user: 'Demo User',
         createdAt: new Date().toISOString(),
         timestamp: new Date().toISOString(),
       });
@@ -922,119 +1203,362 @@ export function handleMockApi(
     }
   }
 
-  // Reports revenue & expense
+  // Reports revenue, expense, vat
   if (path === '/reports/revenue') {
-    const totalRev = store.invoices.reduce((acc: number, i: any) => acc + i.total, 0);
-    const totalVat = store.invoices.reduce((acc: number, i: any) => acc + i.vatTotal, 0);
+    const activeInvoices = firmInvoices.filter((i: any) => i.status !== 'CANCELLED');
+    const totalRev = activeInvoices.reduce((acc: number, i: any) => acc + i.total, 0);
+    const totalVat = activeInvoices.reduce((acc: number, i: any) => acc + i.vatTotal, 0);
     return {
       success: true,
       data: {
         labels: ['May 2026', 'Jun 2026', 'Jul 2026', 'Aug 2026'],
         datasets: [
-          { label: 'Revenue (£)', data: [5100, 3000, 6000, 5040] },
-          { label: 'VAT Collected (£)', data: [1020, 600, 1200, 1008] },
+          { label: 'Revenue (£)', data: [Math.round(totalRev * 0.2), Math.round(totalRev * 0.25), Math.round(totalRev * 0.3), Math.round(totalRev * 0.25)] },
+          { label: 'VAT Collected (£)', data: [Math.round(totalVat * 0.2), Math.round(totalVat * 0.25), Math.round(totalVat * 0.3), Math.round(totalVat * 0.25)] },
         ],
         summary: {
-          totalRevenue: totalRev,
-          totalVat,
-          invoiceCount: store.invoices.length,
+          totalRevenue: totalRev.toFixed(2),
+          totalVat: totalVat.toFixed(2),
+          invoiceCount: activeInvoices.length,
         },
+        invoices: activeInvoices,
       },
     };
   }
 
   if (path === '/reports/expense') {
-    const totalExp = store.expenses.reduce((acc: number, e: any) => acc + e.amount, 0);
-    const totalVatReclaimed = store.expenses.reduce((acc: number, e: any) => acc + e.vatAmount, 0);
+    const totalExp = firmExpenses.reduce((acc: number, e: any) => acc + Number(e.total || e.amount || 0), 0);
+    const totalVatReclaimed = firmExpenses.reduce((acc: number, e: any) => acc + Number(e.vatAmount || 0), 0);
+
+    const categoryMap: Record<string, number> = {};
+    for (const exp of firmExpenses) {
+      categoryMap[exp.category] = (categoryMap[exp.category] || 0) + Number(exp.total || exp.amount || 0);
+    }
+
     return {
       success: true,
       data: {
-        labels: ['IT Infrastructure', 'Office Expenses', 'Professional Fees'],
+        labels: Object.keys(categoryMap).length ? Object.keys(categoryMap) : ['IT Infrastructure', 'Office Expenses', 'Professional Fees'],
         datasets: [
           {
             label: 'Expenses (£)',
-            data: [1440, 520, 3600],
+            data: Object.values(categoryMap).length ? Object.values(categoryMap) : [1440, 520, 3600],
           },
         ],
         summary: {
-          totalExpenses: totalExp,
-          totalVatReclaimed,
-          expenseCount: store.expenses.length,
+          totalExpenses: totalExp.toFixed(2),
+          totalVatReclaimed: totalVatReclaimed.toFixed(2),
+          expenseCount: firmExpenses.length,
         },
+        categoryBreakdown: Object.entries(categoryMap).map(([category, amount]) => ({ category, amount: amount.toFixed(2) })),
+        expenses: firmExpenses,
+      },
+    };
+  }
+
+  if (path === '/reports/vat') {
+    const activeInvoices = firmInvoices.filter((i: any) => i.status !== 'CANCELLED');
+    const totalOutputVat = activeInvoices.reduce((acc: number, i: any) => acc + Number(i.vatTotal || 0), 0);
+    const totalSalesExVat = activeInvoices.reduce((acc: number, i: any) => acc + Number(i.subtotal || 0), 0);
+
+    const totalInputVat = firmExpenses.reduce((acc: number, e: any) => acc + Number(e.vatAmount || 0), 0);
+    const totalPurchasesExVat = firmExpenses.reduce((acc: number, e: any) => acc + Number(e.amount || 0), 0);
+
+    const netVatLiability = totalOutputVat - totalInputVat;
+
+    return {
+      success: true,
+      data: {
+        summary: {
+          outputVat: totalOutputVat.toFixed(2),
+          inputVat: totalInputVat.toFixed(2),
+          netVatLiability: netVatLiability.toFixed(2),
+          salesExVat: totalSalesExVat.toFixed(2),
+          purchasesExVat: totalPurchasesExVat.toFixed(2),
+          invoiceCount: activeInvoices.length,
+          expenseCount: firmExpenses.length,
+        },
+        rateBreakdown: [
+          { rate: 'Standard Rate (20%)', amount: totalSalesExVat.toFixed(2), description: 'Standard VAT sales' },
+          { rate: 'Reduced Rate (5%)', amount: '0.00', description: 'Reduced rate supplies' },
+          { rate: 'Zero Rate (0%)', amount: '0.00', description: 'Zero rated supplies' },
+        ],
+        recentTransactions: [
+          ...activeInvoices.map((inv: any) => ({
+            id: inv.id,
+            type: 'SALE' as const,
+            reference: inv.invoiceNumber,
+            contact: inv.customerName,
+            date: inv.issueDate,
+            net: inv.subtotal,
+            vat: inv.vatTotal,
+            gross: inv.total,
+          })),
+          ...firmExpenses.map((exp: any) => ({
+            id: exp.id,
+            type: 'PURCHASE' as const,
+            reference: exp.description,
+            contact: exp.supplierName || exp.category,
+            date: exp.date,
+            net: exp.amount,
+            vat: exp.vatAmount,
+            gross: exp.total,
+          })),
+        ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 15),
       },
     };
   }
 
   // VAT Overview & Returns
   if (path === '/vat/overview') {
+    const activeInvoices = firmInvoices.filter((i: any) => i.status !== 'CANCELLED');
+    const totalSalesVat = activeInvoices.reduce((acc: number, i: any) => acc + Number(i.vatTotal || 0), 0);
+    const totalSalesExVat = activeInvoices.reduce((acc: number, i: any) => acc + Number(i.subtotal || 0), 0);
+
+    const totalPurchasesVat = firmExpenses.reduce((acc: number, e: any) => acc + Number(e.vatAmount || 0), 0);
+    const totalPurchasesExVat = firmExpenses.reduce((acc: number, e: any) => acc + Number(e.amount || 0), 0);
+
+    const netVatPayable = totalSalesVat - totalPurchasesVat;
+
+    const returnKey = `${currentFirmId}_2026-Q3`;
+    const storedReturn = store.vatReturns?.[returnKey];
+
     return {
       success: true,
       data: {
-        period: '2026-Q3 (Jul - Sep 2026)',
-        vatDueSales: 2340.0,
-        vatReclaimedPurchases: 926.67,
-        netVatPayable: 1413.33,
-        totalSalesExVat: 11700.0,
-        totalPurchasesExVat: 4633.33,
-        status: 'OPEN',
-        openReturns: [
+        currentPeriod: {
+          periodKey: '2026-Q3',
+          startDate: '2026-07-01',
+          endDate: '2026-09-30',
+          dueDate: '2026-11-07',
+          status: storedReturn?.status || 'OPEN',
+        },
+        liveCalculation: {
+          period: { startDate: '2026-07-01', endDate: '2026-09-30' },
+          box1: totalSalesVat.toFixed(2),
+          box2: '0.00',
+          box3: totalSalesVat.toFixed(2),
+          box4: totalPurchasesVat.toFixed(2),
+          box5: netVatPayable.toFixed(2),
+          box6: totalSalesExVat.toFixed(2),
+          box7: totalPurchasesExVat.toFixed(2),
+          box8: '0.00',
+          box9: '0.00',
+          transactionCount: {
+            invoices: activeInvoices.length,
+            expenses: firmExpenses.length,
+          },
+        },
+        obligations: [
           {
+            id: `ob-1-${currentFirmId}`,
             periodKey: '2026-Q3',
-            dateFrom: '2026-07-01',
-            dateTo: '2026-09-30',
+            startPeriod: '2026-07-01',
+            endPeriod: '2026-09-30',
             dueDate: '2026-11-07',
-            status: 'OPEN',
-            netVat: 1413.33,
+            status: storedReturn?.status === 'SUBMITTED' ? 'FULFILLED' : 'OPEN',
           },
           {
+            id: `ob-2-${currentFirmId}`,
             periodKey: '2026-Q2',
-            dateFrom: '2026-04-01',
-            dateTo: '2026-06-30',
+            startPeriod: '2026-04-01',
+            endPeriod: '2026-06-30',
             dueDate: '2026-08-07',
-            status: 'SUBMITTED',
-            netVat: 1050.0,
+            status: 'FULFILLED',
           },
         ],
+        returns: storedReturn
+          ? [storedReturn]
+          : [
+              {
+                id: `ret-prev-${currentFirmId}`,
+                periodKey: '2026-Q2',
+                startPeriod: '2026-04-01',
+                endPeriod: '2026-06-30',
+                box1: 1500.0,
+                box4: 450.0,
+                box5: 1050.0,
+                status: 'SUBMITTED',
+                submittedAt: '2026-08-05T15:20:00.000Z',
+                hmrcCorrelationId: 'HMRC-ACK-2026Q2-DEMO',
+              },
+            ],
+        hmrcConnectionStatus: {
+          isConnected: true,
+          vrn: currentFirm.vatNumber || 'GB987654321',
+          environment: 'mock',
+          lastSyncAt: new Date().toISOString(),
+        },
       },
     };
   }
 
   if (path.startsWith('/vat/returns/') && path.endsWith('/prepare')) {
     const periodKey = path.split('/')[3];
-    const vatRet = store.vatReturns[periodKey] || store.vatReturns['2026-Q3'];
+    const activeInvoices = firmInvoices.filter((i: any) => i.status !== 'CANCELLED');
+    const totalSalesVat = activeInvoices.reduce((acc: number, i: any) => acc + Number(i.vatTotal || 0), 0);
+    const totalSalesExVat = activeInvoices.reduce((acc: number, i: any) => acc + Number(i.subtotal || 0), 0);
+
+    const totalPurchasesVat = firmExpenses.reduce((acc: number, e: any) => acc + Number(e.vatAmount || 0), 0);
+    const totalPurchasesExVat = firmExpenses.reduce((acc: number, e: any) => acc + Number(e.amount || 0), 0);
+
+    const netVatPayable = totalSalesVat - totalPurchasesVat;
+
+    const returnKey = `${currentFirmId}_${periodKey}`;
+    store.vatReturns = store.vatReturns || {};
+    const vatRet = {
+      id: `ret-${Date.now()}`,
+      firmId: currentFirmId,
+      periodKey,
+      startPeriod: '2026-07-01',
+      endPeriod: '2026-09-30',
+      dueDate: '2026-11-07',
+      box1: totalSalesVat.toFixed(2),
+      box2: '0.00',
+      box3: totalSalesVat.toFixed(2),
+      box4: totalPurchasesVat.toFixed(2),
+      box5: netVatPayable.toFixed(2),
+      box6: totalSalesExVat.toFixed(2),
+      box7: totalPurchasesExVat.toFixed(2),
+      box8: '0.00',
+      box9: '0.00',
+      status: store.vatReturns[returnKey]?.status || 'DRAFT',
+      submittedAt: store.vatReturns[returnKey]?.submittedAt || null,
+      hmrcCorrelationId: store.vatReturns[returnKey]?.hmrcCorrelationId || null,
+    };
+
+    store.vatReturns[returnKey] = vatRet;
+    saveStore(store);
     return { success: true, data: vatRet };
   }
 
-  if (path.startsWith('/vat/returns/')) {
+  if (path.startsWith('/vat/returns/') && path.endsWith('/submit')) {
     const periodKey = path.split('/')[3];
-    const vatRet = store.vatReturns[periodKey] || store.vatReturns['2026-Q3'];
-    return { success: true, data: vatRet };
-  }
+    const returnKey = `${currentFirmId}_${periodKey}`;
+    store.vatReturns = store.vatReturns || {};
 
-  if (path.startsWith('/hmrc/returns/') && path.endsWith('/submit')) {
-    const periodKey = path.split('/')[3];
-    if (store.vatReturns[periodKey]) {
-      store.vatReturns[periodKey].status = 'SUBMITTED';
-      store.vatReturns[periodKey].submittedAt = new Date().toISOString();
-      saveStore(store);
-    }
+    const ackId = `HMRC-DEMO-ACK-${Date.now()}`;
+    const vatRet = store.vatReturns[returnKey] || {
+      periodKey,
+      box1: '2340.00',
+      box4: '926.67',
+      box5: '1413.33',
+    };
+
+    vatRet.status = 'SUBMITTED';
+    vatRet.submittedAt = new Date().toISOString();
+    vatRet.hmrcCorrelationId = ackId;
+    store.vatReturns[returnKey] = vatRet;
+
+    store.auditLogs.unshift({
+      id: `audit-${Date.now()}`,
+      firmId: currentFirmId,
+      action: 'VAT_RETURN_SUBMITTED',
+      description: `Submitted VAT Return for ${periodKey} (Demo Ack: ${ackId})`,
+      user: 'Demo User',
+      createdAt: new Date().toISOString(),
+      timestamp: new Date().toISOString(),
+    });
+
+    saveStore(store);
     return {
       success: true,
       data: {
         status: 'SUBMITTED',
-        receiptId: `HMRC-ACK-${Date.now()}`,
-        submittedAt: new Date().toISOString(),
+        receiptId: ackId,
+        submittedAt: vatRet.submittedAt,
+        message: 'VAT Return successfully submitted to HMRC (Demo Sandbox)',
       },
     };
   }
 
+  if (path.startsWith('/hmrc/returns/') && path.endsWith('/submit')) {
+    const periodKey = path.split('/')[3];
+    const returnKey = `${currentFirmId}_${periodKey}`;
+    store.vatReturns = store.vatReturns || {};
+
+    const ackId = `HMRC-DEMO-ACK-${Date.now()}`;
+    const vatRet = store.vatReturns[returnKey] || {
+      periodKey,
+      box1: '2340.00',
+      box4: '926.67',
+      box5: '1413.33',
+    };
+
+    vatRet.status = 'SUBMITTED';
+    vatRet.submittedAt = new Date().toISOString();
+    vatRet.hmrcCorrelationId = ackId;
+    store.vatReturns[returnKey] = vatRet;
+    saveStore(store);
+
+    return {
+      success: true,
+      data: {
+        status: 'SUBMITTED',
+        receiptId: ackId,
+        submittedAt: vatRet.submittedAt,
+      },
+    };
+  }
+
+  if (path.startsWith('/vat/returns/')) {
+    const periodKey = path.split('/')[3];
+    const returnKey = `${currentFirmId}_${periodKey}`;
+    store.vatReturns = store.vatReturns || {};
+
+    if (store.vatReturns[returnKey]) {
+      return { success: true, data: store.vatReturns[returnKey] };
+    }
+
+    // Default return prepared on the fly
+    const activeInvoices = firmInvoices.filter((i: any) => i.status !== 'CANCELLED');
+    const totalSalesVat = activeInvoices.reduce((acc: number, i: any) => acc + Number(i.vatTotal || 0), 0);
+    const totalSalesExVat = activeInvoices.reduce((acc: number, i: any) => acc + Number(i.subtotal || 0), 0);
+    const totalPurchasesVat = firmExpenses.reduce((acc: number, e: any) => acc + Number(e.vatAmount || 0), 0);
+    const totalPurchasesExVat = firmExpenses.reduce((acc: number, e: any) => acc + Number(e.amount || 0), 0);
+    const netVatPayable = totalSalesVat - totalPurchasesVat;
+
+    const defaultRet = {
+      periodKey,
+      startPeriod: '2026-07-01',
+      endPeriod: '2026-09-30',
+      dueDate: '2026-11-07',
+      box1: totalSalesVat.toFixed(2),
+      box2: '0.00',
+      box3: totalSalesVat.toFixed(2),
+      box4: totalPurchasesVat.toFixed(2),
+      box5: netVatPayable.toFixed(2),
+      box6: totalSalesExVat.toFixed(2),
+      box7: totalPurchasesExVat.toFixed(2),
+      box8: '0.00',
+      box9: '0.00',
+      status: 'DRAFT',
+    };
+    return { success: true, data: defaultRet };
+  }
+
   // Integrations (HMRC & Xero)
   if (path === '/hmrc/status' || path === '/integrations/hmrc/status') {
-    return { success: true, data: store.integrations.hmrc };
+    return {
+      success: true,
+      data: {
+        connected: true,
+        vrn: currentFirm.vatNumber || 'GB987654321',
+        environment: 'mock',
+        expiresAt: '2027-08-30T00:00:00.000Z',
+      },
+    };
   }
 
   if (path === '/xero/status' || path === '/integrations/xero/status') {
-    return { success: true, data: store.integrations.xero };
+    return {
+      success: true,
+      data: {
+        connected: true,
+        tenantName: currentFirm.name,
+        lastSync: new Date().toISOString(),
+      },
+    };
   }
 
   if (path === '/hmrc/connect' || path === '/xero/connect') {
@@ -1046,35 +1570,12 @@ export function handleMockApi(
   }
 
   if (path === '/xero/sync') {
-    store.integrations.xero.lastSync = new Date().toISOString();
-    saveStore(store);
     return { success: true, data: { message: 'Synced successfully with Xero' } };
   }
 
-  // Firms profile, users, audit
-  if (path === '/firms/profile') {
-    if (method === 'PUT' || method === 'POST') {
-      store.firm = { ...store.firm, ...body };
-      saveStore(store);
-    }
-    return { success: true, data: store.firm };
-  }
-
-  if (path === '/firms/users') {
-    return {
-      success: true,
-      data: [
-        { id: 'usr-1', name: 'Sarah Connor', email: 'admin@acme.co.uk', role: 'ADMIN', status: 'ACTIVE' },
-        { id: 'usr-2', name: 'David Wright', email: 'accountant@acme.co.uk', role: 'ACCOUNTANT', status: 'ACTIVE' },
-        { id: 'usr-3', name: 'Emma Watson', email: 'user@acme.co.uk', role: 'USER', status: 'ACTIVE' },
-      ],
-    };
-  }
-
   if (path === '/audit') {
-    return { success: true, data: store.auditLogs };
+    return { success: true, data: firmAuditLogs };
   }
 
-  // Fallback default mock response
   return { success: true, data: {} };
 }
