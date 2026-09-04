@@ -7,7 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "prisma generate --schema=../../prisma/schema.prisma && tsc",
     "lint": "tsc --noEmit",
-    "test": "tsc --noEmit",
+    "test": "tsc --noEmit && tsx test/hmrc.test.ts",
     "start": "node dist/index.js"
   },
   "license": "ISC",

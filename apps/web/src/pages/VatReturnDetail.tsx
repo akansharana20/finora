@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { apiFetch } from '../api/client';
-import { ArrowLeft, Send, CheckCircle2, AlertCircle, FileCheck, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Send, CheckCircle2, AlertCircle, ShieldCheck, FileCheck, CheckSquare, Square } from 'lucide-react';
 
 export const VatReturnDetail: React.FC = () => {
   const { periodKey } = useParams<{ periodKey: string }>();
@@ -10,6 +10,8 @@ export const VatReturnDetail: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [receipt, setReceipt] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [declarationConfirmed, setDeclarationConfirmed] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
     if (periodKey) {
@@ -23,7 +25,11 @@ export const VatReturnDetail: React.FC = () => {
   }, [periodKey]);
 
   const handleSubmitToHmrc = async () => {
-    if (!window.confirm(`Confirm submission of VAT Return ${periodKey} to HMRC?`)) return;
+    if (!declarationConfirmed) {
+      setError('Please review and confirm the official HMRC declaration before submitting.');
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
@@ -31,20 +37,27 @@ export const VatReturnDetail: React.FC = () => {
     setSubmitting(false);
 
     if (res.success && res.data) {
+      const receiptData = res.data.hmrcReceipt || {
+        correlationId: res.data.vatReturn?.hmrcCorrelationId || res.data.receiptId,
+      };
       setVatReturn((prev: any) => ({
         ...prev,
         status: 'SUBMITTED',
-        submittedAt: res.data.submittedAt || new Date().toISOString(),
-        hmrcCorrelationId: res.data.receiptId || res.data.hmrcCorrelationId || `HMRC-DEMO-ACK-${Date.now()}`,
+        submittedAt: res.data.vatReturn?.submittedAt || res.data.submittedAt || new Date().toISOString(),
+        hmrcCorrelationId: receiptData.correlationId || res.data.vatReturn?.hmrcCorrelationId,
       }));
-      setReceipt(res.data.hmrcReceipt || { correlationId: res.data.receiptId });
+      setReceipt(receiptData);
+      setShowConfirmModal(false);
     } else {
-      setError(res.error?.message || 'HMRC MTD Submission failed');
+      setError(res.error?.message || 'HMRC MTD Submission failed. Please verify credentials and VAT obligation status.');
     }
   };
 
   if (loading) return <div className="p-8 text-center text-slate-500 text-xs">Loading VAT Return details...</div>;
   if (!vatReturn) return <div className="p-8 text-center text-red-500 text-xs">VAT Return record not found. Prepare the return from VAT Overview first.</div>;
+
+  const netPayable = Number(vatReturn.box5);
+  const isPayable = netPayable >= 0;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -63,7 +76,7 @@ export const VatReturnDetail: React.FC = () => {
                 vatReturn.status === 'SUBMITTED' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
               }`}
             >
-              {vatReturn.status === 'SUBMITTED' ? 'Submitted (Demo)' : vatReturn.status}
+              {vatReturn.status}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
@@ -73,31 +86,40 @@ export const VatReturnDetail: React.FC = () => {
 
         {vatReturn.status !== 'SUBMITTED' && (
           <button
-            onClick={handleSubmitToHmrc}
+            onClick={() => setShowConfirmModal(true)}
             disabled={submitting}
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-lg text-xs transition-colors flex items-center space-x-2 shadow-xs disabled:opacity-50"
           >
             <Send size={16} />
-            <span>{submitting ? 'Submitting to HMRC...' : 'Submit Return (Demo)'}</span>
+            <span>Submit Return to HMRC</span>
           </button>
         )}
       </div>
 
-      {error && <div className="p-3 bg-red-50 text-red-700 text-xs rounded-lg">{error}</div>}
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg flex items-center space-x-2">
+          <AlertCircle size={16} className="shrink-0 text-red-600" />
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* HMRC SUCCESS RECEIPT BANNER */}
-      {(receipt || vatReturn.hmrcCorrelationId) && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-start space-x-3 text-xs">
-          <CheckCircle2 size={20} className="text-emerald-600 shrink-0 mt-0.5" />
-          <div>
-            <div className="font-bold text-sm text-emerald-900">VAT Return Submitted (Demo Sandbox)</div>
+      {(receipt || vatReturn.status === 'SUBMITTED') && (
+        <div className="p-5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-start space-x-3 text-xs shadow-xs">
+          <CheckCircle2 size={22} className="text-emerald-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="font-bold text-sm text-emerald-900">VAT Return Successfully Submitted to HMRC</div>
             <p className="text-[11px] text-emerald-700 mt-0.5">
-              Simulated submission completed. Test acknowledgment generated for Making Tax Digital compliance.
+              Filing receipt recorded under Making Tax Digital compliance standards. Keep this acknowledgment for your tax records.
             </p>
-            <div className="mt-1.5 space-y-0.5 font-mono text-[11px] text-emerald-800">
-              <div>Correlation ID: {vatReturn.hmrcCorrelationId || receipt?.correlationId}</div>
-              {receipt?.formBundleNumber && <div>Bundle Number: {receipt.formBundleNumber}</div>}
-              {vatReturn.submittedAt && <div>Submitted At: {new Date(vatReturn.submittedAt).toLocaleString('en-GB')}</div>}
+            <div className="mt-2.5 grid grid-cols-1 md:grid-cols-2 gap-2 bg-white/70 p-3 rounded-lg border border-emerald-200 font-mono text-[11px] text-emerald-900">
+              <div>Correlation ID: <strong>{receipt?.correlationId || vatReturn.hmrcCorrelationId || 'Recorded'}</strong></div>
+              {receipt?.formBundleNumber && <div>Form Bundle: <strong>{receipt.formBundleNumber}</strong></div>}
+              {receipt?.chargeRefNumber && <div>Charge Reference: <strong>{receipt.chargeRefNumber}</strong></div>}
+              {receipt?.paymentIndicator && <div>Payment Indicator: <strong>{receipt.paymentIndicator}</strong></div>}
+              {vatReturn.submittedAt && (
+                <div>Submitted At: <strong>{new Date(vatReturn.submittedAt).toLocaleString('en-GB')}</strong></div>
+              )}
             </div>
           </div>
         </div>
@@ -149,27 +171,29 @@ export const VatReturnDetail: React.FC = () => {
 
           <div className="p-4 bg-emerald-50 rounded-xl border-2 border-emerald-300 flex items-center justify-between font-bold">
             <div>
-              <span className="text-emerald-900 text-sm">Box 5 (Net VAT Payable to HMRC)</span>
+              <span className="text-emerald-900 text-sm">
+                Box 5 ({isPayable ? 'Net VAT Payable to HMRC' : 'Net VAT Reclaimable from HMRC'})
+              </span>
               <span className="text-emerald-700 font-normal block">Difference between Box 3 and Box 4</span>
             </div>
-            <span className="text-xl text-emerald-900">£{Number(vatReturn.box5).toFixed(2)}</span>
+            <span className="text-xl text-emerald-900">£{Math.abs(netPayable).toFixed(2)}</span>
           </div>
 
           <div className="pt-2 grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
               <div>
                 <span className="font-bold text-slate-800">Box 6</span>
-                <span className="text-slate-500 block">Total value of sales ex VAT</span>
+                <span className="text-slate-500 block">Total value of sales ex VAT (whole pounds)</span>
               </div>
-              <span className="font-bold text-slate-900">£{Number(vatReturn.box6).toFixed(2)}</span>
+              <span className="font-bold text-slate-900">£{Math.trunc(Number(vatReturn.box6)).toLocaleString('en-GB')}</span>
             </div>
 
             <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
               <div>
                 <span className="font-bold text-slate-800">Box 7</span>
-                <span className="text-slate-500 block">Total value of purchases ex VAT</span>
+                <span className="text-slate-500 block">Total value of purchases ex VAT (whole pounds)</span>
               </div>
-              <span className="font-bold text-slate-900">£{Number(vatReturn.box7).toFixed(2)}</span>
+              <span className="font-bold text-slate-900">£{Math.trunc(Number(vatReturn.box7)).toLocaleString('en-GB')}</span>
             </div>
 
             <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
@@ -177,7 +201,7 @@ export const VatReturnDetail: React.FC = () => {
                 <span className="font-bold text-slate-800">Box 8</span>
                 <span className="text-slate-500 block">Total value of EC goods supplied ex VAT</span>
               </div>
-              <span className="font-bold text-slate-900">£{Number(vatReturn.box8).toFixed(2)}</span>
+              <span className="font-bold text-slate-900">£{Math.trunc(Number(vatReturn.box8)).toLocaleString('en-GB')}</span>
             </div>
 
             <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
@@ -185,11 +209,77 @@ export const VatReturnDetail: React.FC = () => {
                 <span className="font-bold text-slate-800">Box 9</span>
                 <span className="text-slate-500 block">Total value of EC acquisitions ex VAT</span>
               </div>
-              <span className="font-bold text-slate-900">£{Number(vatReturn.box9).toFixed(2)}</span>
+              <span className="font-bold text-slate-900">£{Math.trunc(Number(vatReturn.box9)).toLocaleString('en-GB')}</span>
             </div>
           </div>
         </div>
       </div>
+
+      {/* EXPLICIT SUBMISSION CONFIRMATION MODAL */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <FileCheck size={20} className="text-emerald-400" />
+                <h3 className="font-bold text-sm">HMRC VAT Return Confirmation</h3>
+              </div>
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="text-slate-400 hover:text-white text-xs font-semibold"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Period Key:</span>
+                  <strong className="text-slate-900">{vatReturn.periodKey}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Net Liability (Box 5):</span>
+                  <strong className="text-emerald-700">£{Math.abs(netPayable).toFixed(2)}</strong>
+                </div>
+              </div>
+
+              <div
+                onClick={() => setDeclarationConfirmed(!declarationConfirmed)}
+                className="p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer flex items-start space-x-3 transition-colors"
+              >
+                {declarationConfirmed ? (
+                  <CheckSquare size={18} className="text-blue-600 shrink-0 mt-0.5" />
+                ) : (
+                  <Square size={18} className="text-slate-400 shrink-0 mt-0.5" />
+                )}
+                <p className="text-[11px] text-slate-700 select-none">
+                  <strong>Legal Declaration:</strong> I declare that the information provided in this return is complete and correct to the best of my knowledge and belief, in accordance with the provisions of the Value Added Tax Act 1994 and Making Tax Digital.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmModal(false)}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!declarationConfirmed || submitting}
+                  onClick={handleSubmitToHmrc}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors flex items-center space-x-2 shadow-xs disabled:opacity-50"
+                >
+                  <Send size={14} />
+                  <span>{submitting ? 'Submitting...' : 'Confirm & Submit to HMRC'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

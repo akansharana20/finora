@@ -46,7 +46,7 @@ export class VatController {
     try {
       const { periodKey } = req.params;
       const { HmrcService } = await import('../hmrc/hmrc.service');
-      const result = await HmrcService.submitReturn(req.firmId!, periodKey);
+      const result = await HmrcService.submitReturn(req.firmId!, periodKey, req);
       return sendSuccess(res, result, `VAT Return for period ${periodKey} submitted`);
     } catch (error) {
       return next(error);

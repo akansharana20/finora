@@ -6,6 +6,8 @@ export const Integrations: React.FC = () => {
   const [hmrcStatus, setHmrcStatus] = useState<any>(null);
   const [xeroStatus, setXeroStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [syncingHmrc, setSyncingHmrc] = useState(false);
+  const [hmrcMessage, setHmrcMessage] = useState<string | null>(null);
   const [syncingXero, setSyncingXero] = useState(false);
   const [xeroMessage, setXeroMessage] = useState<string | null>(null);
 
@@ -38,6 +40,19 @@ export const Integrations: React.FC = () => {
     fetchStatus();
   };
 
+  const handleSyncHmrc = async () => {
+    setSyncingHmrc(true);
+    setHmrcMessage(null);
+    const res = await apiFetch('/hmrc/obligations/sync', { method: 'POST' });
+    setSyncingHmrc(false);
+    if (res.success) {
+      setHmrcMessage(`Successfully synchronized obligations from HMRC MTD.`);
+      fetchStatus();
+    } else {
+      setHmrcMessage(res.error?.message || 'Failed to sync obligations from HMRC.');
+    }
+  };
+
   const toggleXero = async () => {
     if (xeroStatus?.isConnected) {
       await apiFetch('/xero/disconnect', { method: 'POST' });
@@ -59,7 +74,7 @@ export const Integrations: React.FC = () => {
 
     if (res.success && res.data?.stats) {
       const { createdCustomers, createdInvoices } = res.data.stats;
-      setXeroMessage(`Synced ${createdCustomers} new contacts & ${createdInvoices} invoices from Xero.`);
+      setXeroMessage(`Synced ${createdCustomers} contacts & ${createdInvoices} invoices from Xero.`);
       fetchStatus();
     }
   };
@@ -97,23 +112,42 @@ export const Integrations: React.FC = () => {
 
             <div className="mt-4 pt-3 border-t border-slate-100 text-xs space-y-1 text-slate-600">
               <div>VRN: <strong className="font-mono text-slate-800">{hmrcStatus?.vrn || '987654321'}</strong></div>
-              <div>Mode: <strong className="text-blue-600 font-semibold">{hmrcStatus?.environment || 'sandbox'}</strong></div>
+              <div>Environment: <strong className="text-blue-600 font-semibold">{hmrcStatus?.environment || 'sandbox'}</strong></div>
               {hmrcStatus?.lastSyncAt && (
                 <div>Last Sync: <span className="text-slate-500">{new Date(hmrcStatus.lastSyncAt).toLocaleString('en-GB')}</span></div>
               )}
             </div>
+
+            {hmrcMessage && (
+              <div className="mt-2 p-2 bg-emerald-50 text-emerald-800 text-[11px] rounded font-medium">
+                {hmrcMessage}
+              </div>
+            )}
           </div>
 
-          <button
-            onClick={toggleHmrc}
-            className={`w-full py-2 rounded-lg text-xs font-semibold transition-colors shadow-xs ${
-              hmrcStatus?.isConnected
-                ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300'
-                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-            }`}
-          >
-            {hmrcStatus?.isConnected ? 'Disconnect HMRC' : 'Connect to HMRC Sandbox'}
-          </button>
+          <div className="space-y-2">
+            {hmrcStatus?.isConnected && (
+              <button
+                onClick={handleSyncHmrc}
+                disabled={syncingHmrc}
+                className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition-colors flex items-center justify-center space-x-1.5 shadow-xs disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={syncingHmrc ? 'animate-spin' : ''} />
+                <span>{syncingHmrc ? 'Syncing Obligations...' : 'Sync Obligations Now'}</span>
+              </button>
+            )}
+
+            <button
+              onClick={toggleHmrc}
+              className={`w-full py-2 rounded-lg text-xs font-semibold transition-colors shadow-xs ${
+                hmrcStatus?.isConnected
+                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+              }`}
+            >
+              {hmrcStatus?.isConnected ? 'Disconnect HMRC' : 'Connect to HMRC'}
+            </button>
+          </div>
         </div>
 
         {/* XERO CARD */}
@@ -139,7 +173,7 @@ export const Integrations: React.FC = () => {
 
             <div className="mt-4 pt-3 border-t border-slate-100 text-xs space-y-1 text-slate-600">
               <div>Org: <strong className="text-slate-800">{xeroStatus?.tenantName || 'Acme Consulting (Xero)'}</strong></div>
-              <div>Mode: <strong className="text-blue-600 font-semibold">{xeroStatus?.environment || 'demo'}</strong></div>
+              <div>Environment: <strong className="text-blue-600 font-semibold">{xeroStatus?.environment || 'sandbox'}</strong></div>
               {xeroStatus?.lastSyncAt && (
                 <div>Last Sync: <span className="text-slate-500">{new Date(xeroStatus.lastSyncAt).toLocaleString('en-GB')}</span></div>
               )}
@@ -172,7 +206,7 @@ export const Integrations: React.FC = () => {
                   : 'bg-sky-600 hover:bg-sky-700 text-white'
               }`}
             >
-              {xeroStatus?.isConnected ? 'Disconnect Xero' : 'Connect to Xero Demo'}
+              {xeroStatus?.isConnected ? 'Disconnect Xero' : 'Connect to Xero'}
             </button>
           </div>
         </div>
@@ -191,11 +225,11 @@ export const Integrations: React.FC = () => {
 
             <h3 className="text-base font-bold text-slate-900 mt-4">Internal Payment Provider</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Internal payment engine with extensible sandbox provider interface for card payments and BACS transfer recording.
+              Internal payment engine with extensible provider interface for card payments and BACS transfer recording.
             </p>
 
             <div className="mt-4 pt-3 border-t border-slate-100 text-xs space-y-1 text-slate-600">
-              <div>Provider: <strong className="text-slate-800">Internal / Mock Sandbox</strong></div>
+              <div>Provider: <strong className="text-slate-800">Internal Engine</strong></div>
               <div>Supported: <span className="text-slate-500">BACS, Card, Direct Debit</span></div>
               <div>Status: <span className="text-emerald-600 font-semibold">Ready for live gateway key</span></div>
             </div>

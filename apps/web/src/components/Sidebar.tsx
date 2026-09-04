@@ -67,7 +67,7 @@ export const Sidebar: React.FC = () => {
             <div>
               <span className="font-bold text-lg text-white tracking-tight">Finora</span>
               <span className="text-xs bg-blue-900/60 text-blue-300 px-1.5 py-0.5 rounded ml-1.5 font-medium border border-blue-700/50">
-                V1 UK
+                UK GAAP
               </span>
             </div>
           </div>
