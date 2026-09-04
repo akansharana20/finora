@@ -2,21 +2,7 @@ import { handleMockApi } from './mockData';
 
 export function isDemoMode(): boolean {
   const demoEnv = import.meta.env.VITE_DEMO_MODE;
-  if (demoEnv === 'true' || demoEnv === '1') {
-    return true;
-  }
-  try {
-    const saved = localStorage.getItem('finora_user');
-    if (saved) {
-      const u = JSON.parse(saved);
-      if (u && (u.demo === true || u.demo === 'true')) {
-        return true;
-      }
-    }
-  } catch (e) {
-    // Ignore parse error
-  }
-  return false;
+  return demoEnv === 'true' || demoEnv === '1';
 }
 
 function getApiBaseUrl(): string {
@@ -37,8 +23,23 @@ export async function apiFetch<T = any>(
 ): Promise<{ success: boolean; data?: T; message?: string; error?: any }> {
   const activeFirmId = localStorage.getItem('finora_active_firm_id');
 
+  // Collect client-side fraud prevention telemetry for HMRC Making Tax Digital compliance
+  const tzOffset = -new Date().getTimezoneOffset();
+  const tzSign = tzOffset >= 0 ? '+' : '-';
+  const tzHours = String(Math.floor(Math.abs(tzOffset) / 60)).padStart(2, '0');
+  const tzMins = String(Math.abs(tzOffset) % 60).padStart(2, '0');
+  const clientTimezone = `UTC${tzSign}${tzHours}:${tzMins}`;
+
+  const clientScreens = typeof window !== 'undefined' && window.screen
+    ? `width=${window.screen.width}&height=${window.screen.height}&scaling-factor=${window.devicePixelRatio || 1}&colour-depth=${window.screen.colorDepth || 24}`
+    : 'width=1920&height=1080&scaling-factor=1&colour-depth=24';
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'x-client-user-agent': typeof navigator !== 'undefined' ? navigator.userAgent : 'Finora Web Client',
+    'x-client-screens': clientScreens,
+    'x-client-timezone': clientTimezone,
+    'x-client-dnt': typeof navigator !== 'undefined' && (navigator as any).doNotTrack === '1' ? 'true' : 'false',
     ...(options.headers as Record<string, string>),
   };
 

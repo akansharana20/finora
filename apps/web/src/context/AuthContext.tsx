@@ -38,10 +38,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return saved ? JSON.parse(saved) : null;
   });
   const [activeFirmId, setActiveFirmId] = useState<string>(() => {
-    return localStorage.getItem('finora_active_firm_id') || user?.firmId || 'demo-firm-acme';
+    return localStorage.getItem('finora_active_firm_id') || user?.firmId || '';
   });
   const [activeFirmName, setActiveFirmName] = useState<string>(() => {
-    return localStorage.getItem('finora_active_firm_name') || user?.firmName || 'Acme Consulting Ltd';
+    return localStorage.getItem('finora_active_firm_name') || user?.firmName || '';
   });
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('finora_token'));
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -66,8 +66,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .then((res) => {
           if (res.success && res.data) {
             const u = res.data;
-            const fullUser = { ...u, firmName: u.firm?.name || u.firmName, demo: isDemoMode() || !!u.demo };
+            const firmName = u.firm?.name || u.firmName || '';
+            const fullUser = { ...u, firmName, demo: isDemoMode() };
             setUser(fullUser);
+            if (!activeFirmId && fullUser.firmId) {
+              setActiveFirmId(fullUser.firmId);
+              setActiveFirmName(firmName);
+              localStorage.setItem('finora_active_firm_id', fullUser.firmId);
+              localStorage.setItem('finora_active_firm_name', firmName);
+            }
             localStorage.setItem('finora_user', JSON.stringify(fullUser));
           } else {
             logout();
@@ -87,11 +94,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (res.success && res.data) {
       const { user: loggedUser, token: authToken } = res.data;
-      const fullUser = { ...loggedUser, demo: isDemoMode() || loggedUser.demo };
+      const firmName = loggedUser.firmName || loggedUser.firm?.name || '';
+      const fullUser = { ...loggedUser, firmName, demo: isDemoMode() };
       setUser(fullUser);
       setToken(authToken);
+      setActiveFirmId(loggedUser.firmId);
+      setActiveFirmName(firmName);
       localStorage.setItem('finora_token', authToken);
       localStorage.setItem('finora_user', JSON.stringify(fullUser));
+      localStorage.setItem('finora_active_firm_id', loggedUser.firmId);
+      localStorage.setItem('finora_active_firm_name', firmName);
       return { success: true };
     }
 
@@ -142,7 +154,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isAuthenticated: !!token && !!user,
         isLoading,
-        isDemo: isDemoMode() || !!user?.demo,
+        isDemo: isDemoMode(),
         activeFirmId,
         activeFirmName,
         switchCompany,

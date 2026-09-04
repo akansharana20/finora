@@ -3,13 +3,13 @@ import { useAuth } from '../context/AuthContext';
 import { LogOut, Building } from 'lucide-react';
 
 export const Header: React.FC = () => {
-  const { user, logout, isDemo, activeFirmName } = useAuth();
+  const { user, logout, activeFirmName } = useAuth();
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-20 shadow-xs">
       <div className="flex items-center space-x-3">
         <h1 className="text-lg font-bold text-slate-800 tracking-tight">
-          Finora Accounting V1
+          Finora Accounting
         </h1>
         <span className="hidden sm:inline-block bg-slate-100 text-slate-600 text-xs font-semibold px-2 py-0.5 rounded border border-slate-200">
           UK GAAP & MTD VAT
@@ -18,15 +18,6 @@ export const Header: React.FC = () => {
           <Building size={12} className="text-blue-600" />
           <span className="truncate max-w-[160px]">{activeFirmName || user?.firmName || 'Acme Consulting Ltd'}</span>
         </span>
-        {isDemo && (
-          <span
-            className="bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold px-2.5 py-0.5 rounded-md flex items-center space-x-1 shadow-2xs"
-            title="Running in Frontend Demo Mode with sample accounting data"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse inline-block" />
-            <span>DEMO MODE</span>
-          </span>
-        )}
       </div>
 
       <div className="flex items-center space-x-4">
