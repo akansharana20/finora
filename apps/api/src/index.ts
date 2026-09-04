@@ -89,7 +89,7 @@ app.use('/api/firms', firmRoutes);
 // Global Error Handling Middleware
 app.use(errorHandler);
 
-if (!process.env.VERCEL) {
+if (require.main === module && !process.env.VERCEL) {
   const PORT = process.env.PORT || 4000;
   app.listen(PORT, () => {
     console.log(`🚀 Finora V1 API server listening on port ${PORT}`);

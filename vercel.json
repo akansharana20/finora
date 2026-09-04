@@ -2,5 +2,15 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "apps/web/dist",
-  "framework": "vite"
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/api/health",
+      "destination": "/api/health"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    }
+  ]
 }
