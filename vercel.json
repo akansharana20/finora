@@ -5,16 +5,56 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/api/health",
-      "destination": "/api/health"
-    },
-    {
       "source": "/health",
       "destination": "/api/health"
     },
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index"
+      "source": "/api/auth/:match*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/customers/:match*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/suppliers/:match*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/invoices/:match*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/expenses/:match*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/payments/:match*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/vat/:match*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/hmrc/:match*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/xero/:match*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/reports/:match*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/audit/:match*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/firms/:match*",
+      "destination": "/api"
     }
   ]
 }
