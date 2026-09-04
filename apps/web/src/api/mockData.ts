@@ -1384,10 +1384,10 @@ export function handleMockApi(
               },
             ],
         hmrcConnectionStatus: {
-          isConnected: true,
-          vrn: currentFirm.vatNumber || 'GB987654321',
-          environment: 'mock',
-          lastSyncAt: new Date().toISOString(),
+          isConnected: false,
+          vrn: currentFirm.vatNumber || null,
+          environment: 'sandbox',
+          lastSyncAt: null,
         },
       },
     };
@@ -1537,19 +1537,7 @@ export function handleMockApi(
     return { success: true, data: defaultRet };
   }
 
-  // Integrations (HMRC & Xero)
-  if (path === '/hmrc/status' || path === '/integrations/hmrc/status') {
-    return {
-      success: true,
-      data: {
-        connected: true,
-        vrn: currentFirm.vatNumber || 'GB987654321',
-        environment: 'mock',
-        expiresAt: '2027-08-30T00:00:00.000Z',
-      },
-    };
-  }
-
+  // Integrations (Xero)
   if (path === '/xero/status' || path === '/integrations/xero/status') {
     return {
       success: true,
@@ -1561,11 +1549,11 @@ export function handleMockApi(
     };
   }
 
-  if (path === '/hmrc/connect' || path === '/xero/connect') {
+  if (path === '/xero/connect') {
     return { success: true, data: { url: '#demo-connected' } };
   }
 
-  if (path === '/hmrc/disconnect' || path === '/xero/disconnect') {
+  if (path === '/xero/disconnect') {
     return { success: true, data: { message: 'Disconnected' } };
   }
 

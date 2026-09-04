@@ -1,3 +1,5 @@
+import { BadRequestError } from '../../utils/errors';
+
 export interface HmrcObligationResponse {
   start: string;
   end: string;
@@ -65,6 +67,10 @@ export class HmrcClient {
       const callback = process.env.HMRC_REDIRECT_URI || 'http://localhost:4000/api/hmrc/callback';
       const delimiter = callback.includes('?') ? '&' : '?';
       return `${callback}${delimiter}code=mock_authorization_code&state=${state}`;
+    }
+
+    if (!this.clientId) {
+      throw new BadRequestError('HMRC OAuth Client ID is missing. Please configure HMRC_CLIENT_ID on the API server.');
     }
 
     const redirectUri = encodeURIComponent(this.redirectUri);

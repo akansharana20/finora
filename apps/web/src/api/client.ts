@@ -2,6 +2,9 @@ import { handleMockApi } from './mockData';
 
 export function isDemoMode(): boolean {
   const demoEnv = import.meta.env.VITE_DEMO_MODE;
+  if (demoEnv === 'false' || demoEnv === '0') {
+    return false;
+  }
   return demoEnv === 'true' || demoEnv === '1';
 }
 
@@ -13,6 +16,10 @@ function getApiBaseUrl(): string {
       return trimmed;
     }
     return `${trimmed}/api`;
+  }
+  // In production deployments (e.g. Vercel), default to the production API URL rather than localhost
+  if (import.meta.env.PROD || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')) {
+    return 'https://finora-api.vercel.app/api';
   }
   return 'http://localhost:4000/api';
 }
@@ -52,7 +59,9 @@ export async function apiFetch<T = any>(
     headers,
   };
 
-  if (isDemoMode()) {
+  // HMRC endpoints must never use mock data so they always connect to real/sandbox backend
+  const isHmrcEndpoint = endpoint.startsWith('/hmrc') || endpoint.startsWith('/integrations/hmrc');
+  if (isDemoMode() && !isHmrcEndpoint) {
     return handleMockApi(endpoint, mergedOptions);
   }
 

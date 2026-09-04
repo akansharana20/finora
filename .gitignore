@@ -13,6 +13,7 @@ build/
 .env.local
 .env.*
 !.env.example
+!apps/web/.env.production
 
 # Database & Local Runtime Data
 pgdata/
