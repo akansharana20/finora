@@ -4,6 +4,8 @@ import { Landmark, Share2, CreditCard, RefreshCw, CheckCircle2, AlertCircle, Shi
 
 export const Integrations: React.FC = () => {
   const [hmrcStatus, setHmrcStatus] = useState<any>(null);
+  const [hmrcError, setHmrcError] = useState<string | null>(null);
+  const [connectingHmrc, setConnectingHmrc] = useState(false);
   const [xeroStatus, setXeroStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [syncingHmrc, setSyncingHmrc] = useState(false);
@@ -17,27 +19,54 @@ export const Integrations: React.FC = () => {
 
   const fetchStatus = async () => {
     setLoading(true);
+    setHmrcError(null);
     const [hmrcRes, xeroRes] = await Promise.all([
       apiFetch('/hmrc/status'),
       apiFetch('/xero/status'),
     ]);
 
-    if (hmrcRes.success) setHmrcStatus(hmrcRes.data);
+    if (hmrcRes.success) {
+      setHmrcStatus(hmrcRes.data);
+      setHmrcError(null);
+    } else {
+      setHmrcStatus(null);
+      setHmrcError(hmrcRes.error?.message || 'Failed to fetch HMRC connection status');
+    }
+
     if (xeroRes.success) setXeroStatus(xeroRes.data);
     setLoading(false);
   };
 
   const toggleHmrc = async () => {
+    setHmrcError(null);
+    setHmrcMessage(null);
+
     if (hmrcStatus?.isConnected) {
-      await apiFetch('/hmrc/disconnect', { method: 'POST' });
+      setConnectingHmrc(true);
+      const res = await apiFetch('/hmrc/disconnect', { method: 'POST' });
+      setConnectingHmrc(false);
+      if (res.success) {
+        setHmrcMessage('Disconnected from HMRC.');
+        fetchStatus();
+      } else {
+        setHmrcError(res.error?.message || 'Failed to disconnect from HMRC.');
+      }
     } else {
+      setConnectingHmrc(true);
       const res = await apiFetch('/hmrc/connect');
+      setConnectingHmrc(false);
       if (res.success && res.data?.url) {
-        window.location.href = res.data.url;
+        const url = res.data.url;
+        if (url.startsWith('#') || url.includes('demo-connected')) {
+          setHmrcError('Backend returned a demo fallback URL (#demo-connected) instead of an HMRC sandbox OAuth redirect.');
+          return;
+        }
+        window.location.href = url;
         return;
+      } else {
+        setHmrcError(res.error?.message || 'Failed to initialize HMRC connection. Please verify server configuration.');
       }
     }
-    fetchStatus();
   };
 
   const handleSyncHmrc = async () => {
@@ -111,8 +140,8 @@ export const Integrations: React.FC = () => {
             </p>
 
             <div className="mt-4 pt-3 border-t border-slate-100 text-xs space-y-1 text-slate-600">
-              <div>VRN: <strong className="font-mono text-slate-800">{hmrcStatus?.vrn || '987654321'}</strong></div>
-              <div>Environment: <strong className="text-blue-600 font-semibold">{hmrcStatus?.environment || 'sandbox'}</strong></div>
+              <div>VRN: <strong className="font-mono text-slate-800">{hmrcStatus?.vrn || 'Not Connected'}</strong></div>
+              <div>Environment: <strong className={`font-semibold ${hmrcStatus?.environment === 'production' ? 'text-emerald-600' : 'text-blue-600'}`}>{hmrcStatus?.environment || 'sandbox'}</strong></div>
               {hmrcStatus?.lastSyncAt && (
                 <div>Last Sync: <span className="text-slate-500">{new Date(hmrcStatus.lastSyncAt).toLocaleString('en-GB')}</span></div>
               )}
@@ -121,6 +150,13 @@ export const Integrations: React.FC = () => {
             {hmrcMessage && (
               <div className="mt-2 p-2 bg-emerald-50 text-emerald-800 text-[11px] rounded font-medium">
                 {hmrcMessage}
+              </div>
+            )}
+
+            {hmrcError && (
+              <div className="mt-2 p-2.5 bg-red-50 border border-red-200 text-red-700 text-[11px] rounded font-medium flex items-start space-x-1.5">
+                <AlertCircle size={14} className="shrink-0 mt-0.5 text-red-600" />
+                <span className="leading-snug">{hmrcError}</span>
               </div>
             )}
           </div>
@@ -139,13 +175,21 @@ export const Integrations: React.FC = () => {
 
             <button
               onClick={toggleHmrc}
-              className={`w-full py-2 rounded-lg text-xs font-semibold transition-colors shadow-xs ${
+              disabled={connectingHmrc}
+              className={`w-full py-2 rounded-lg text-xs font-semibold transition-colors shadow-xs flex items-center justify-center space-x-1.5 ${
                 hmrcStatus?.isConnected
                   ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50'
               }`}
             >
-              {hmrcStatus?.isConnected ? 'Disconnect HMRC' : 'Connect to HMRC'}
+              {connectingHmrc ? (
+                <>
+                  <RefreshCw size={14} className="animate-spin" />
+                  <span>Connecting...</span>
+                </>
+              ) : (
+                <span>{hmrcStatus?.isConnected ? 'Disconnect HMRC' : 'Connect to HMRC'}</span>
+              )}
             </button>
           </div>
         </div>

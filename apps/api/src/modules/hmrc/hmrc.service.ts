@@ -15,6 +15,11 @@ export class HmrcService {
       throw new NotFoundError('Firm not found');
     }
 
+    const mode = (process.env.INTEGRATION_MODE || '').toLowerCase();
+    if (mode !== 'mock' && !process.env.HMRC_CLIENT_ID) {
+      throw new BadRequestError('HMRC OAuth is not configured: HMRC_CLIENT_ID environment variable is missing on the API server.');
+    }
+
     // State payload encodes firmId and timestamp
     const state = Buffer.from(JSON.stringify({ firmId, timestamp: Date.now() })).toString('base64');
     return HmrcService.client.getAuthorizationUrl(state);
@@ -26,7 +31,10 @@ export class HmrcService {
       throw new NotFoundError('Firm not found');
     }
 
-    const vrn = firm.vatNumber ? firm.vatNumber.replace(/[^0-9]/g, '') : '987654321';
+    const vrn = firm.vatNumber ? firm.vatNumber.replace(/[^0-9]/g, '') : '';
+    if (!vrn) {
+      throw new BadRequestError('Firm has no VAT Registration Number (VRN) configured. Please set a VAT number in company settings.');
+    }
 
     // Real OAuth exchange via HMRC client
     const tokenResponse = await HmrcService.client.exchangeCodeForTokens(code);
@@ -124,15 +132,19 @@ export class HmrcService {
       where: { firmId },
     });
 
-    const isMock = process.env.INTEGRATION_MODE === 'mock' || (!process.env.HMRC_CLIENT_ID && process.env.INTEGRATION_MODE !== 'sandbox');
+    const mode = (process.env.INTEGRATION_MODE || '').toLowerCase();
+    const isMock = mode === 'mock';
+    const isConfigured = Boolean(process.env.HMRC_CLIENT_ID && process.env.HMRC_CLIENT_SECRET);
+    const environment = mode === 'mock' ? 'mock' : (process.env.HMRC_ENVIRONMENT || (mode === 'production' ? 'production' : 'sandbox'));
 
     return {
       isConnected: connection?.isConnected || false,
       vrn: connection?.vrn || null,
-      environment: connection?.environment || 'sandbox',
+      environment: connection?.environment || environment,
       lastSyncAt: connection?.lastSyncAt || null,
       expiresAt: connection?.expiresAt || null,
       isMock,
+      isConfigured,
     };
   }
 
@@ -172,7 +184,10 @@ export class HmrcService {
     });
 
     const firm = await prisma.firm.findUnique({ where: { id: firmId } });
-    const vrn = connection?.vrn || (firm?.vatNumber ? firm.vatNumber.replace(/[^0-9]/g, '') : '987654321');
+    const vrn = connection?.vrn || (firm?.vatNumber ? firm.vatNumber.replace(/[^0-9]/g, '') : '');
+    if (!vrn) {
+      throw new BadRequestError('No VAT Registration Number (VRN) found. Please set a VAT number in company settings.');
+    }
 
     const accessToken = await HmrcService.getValidAccessToken(firmId);
     const fraudHeaders = buildHmrcFraudHeaders(req);
@@ -247,7 +262,10 @@ export class HmrcService {
     });
 
     const firm = await prisma.firm.findUnique({ where: { id: firmId } });
-    const vrn = connection?.vrn || (firm?.vatNumber ? firm.vatNumber.replace(/[^0-9]/g, '') : '987654321');
+    const vrn = connection?.vrn || (firm?.vatNumber ? firm.vatNumber.replace(/[^0-9]/g, '') : '');
+    if (!vrn) {
+      throw new BadRequestError('No VAT Registration Number (VRN) found. Please set a VAT number in company settings.');
+    }
 
     await prisma.auditLog.create({
       data: {

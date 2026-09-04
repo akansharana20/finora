@@ -85,6 +85,33 @@ async function runTests() {
   assert.strictEqual(submissionReceipt.paymentIndicator, 'DD');
   console.log('✅ Passed Test 4: VAT return submission receipt verified.\n');
 
+  // Test 5: Sandbox mode without client ID must throw BadRequestError
+  console.log('Test 5: HMRC Client Sandbox Mode - Missing Client ID Validation');
+  process.env.INTEGRATION_MODE = 'sandbox';
+  delete process.env.HMRC_CLIENT_ID;
+  const unconfiguredSandboxClient = new HmrcClient();
+  let caughtError: any = null;
+  try {
+    unconfiguredSandboxClient.getAuthorizationUrl('state_test_missing_id');
+  } catch (err: any) {
+    caughtError = err;
+  }
+  assert.ok(caughtError, 'Should throw error when client ID is missing in sandbox mode');
+  assert.strictEqual(caughtError.statusCode, 400, 'Error should be a BadRequestError (400)');
+  console.log('✅ Passed Test 5: Sandbox mode throws BadRequestError when client ID is missing.\n');
+
+  // Test 6: Sandbox mode with client ID points to HMRC test-api sandbox
+  console.log('Test 6: HMRC Client Sandbox Mode - Real Sandbox OAuth URL Generation');
+  process.env.INTEGRATION_MODE = 'sandbox';
+  process.env.HMRC_CLIENT_ID = 'test_sandbox_client_id_456';
+  process.env.HMRC_BASE_URL = 'https://test-api.service.hmrc.gov.uk';
+  const configuredSandboxClient = new HmrcClient();
+  const sandboxAuthUrl = configuredSandboxClient.getAuthorizationUrl('state_sandbox_123');
+  assert.ok(sandboxAuthUrl.startsWith('https://test-api.service.hmrc.gov.uk/oauth/authorize'), 'Auth URL must target HMRC test-api sandbox endpoint');
+  assert.ok(sandboxAuthUrl.includes('client_id=test_sandbox_client_id_456'), 'Auth URL must include client_id');
+  assert.ok(sandboxAuthUrl.includes('state=state_sandbox_123'), 'Auth URL must include state');
+  console.log('✅ Passed Test 6: Sandbox OAuth URL correctly points to HMRC test-api sandbox.\n');
+
   console.log('🎉 All HMRC & Finora Integration Tests Passed Successfully!');
 }
 
