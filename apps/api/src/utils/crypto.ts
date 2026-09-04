@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 function getEncryptionKey(): Buffer {
   const secret = process.env.HMRC_ENCRYPTION_KEY || process.env.JWT_SECRET || 'finora-hmrc-default-secure-encryption-key-32-chars';

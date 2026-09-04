@@ -64,12 +64,13 @@ const healthHandler = (_req: express.Request, res: express.Response) => {
     status: 'ok',
     service: 'finora-api',
     timestamp: new Date().toISOString(),
-    integrationMode: process.env.INTEGRATION_MODE || 'mock',
+    integrationMode: process.env.INTEGRATION_MODE || 'sandbox',
   });
 };
 
 app.get('/api/health', healthHandler);
 app.get('/health', healthHandler);
+app.get('/', healthHandler);
 
 // Modular Routes Registration
 app.use('/api/auth', authRoutes);

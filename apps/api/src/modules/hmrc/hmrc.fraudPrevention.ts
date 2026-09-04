@@ -1,5 +1,5 @@
 import { Request } from 'express';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 let vendorInstanceId: string = process.env.HMRC_VENDOR_INSTANCE_ID || '';
 if (!vendorInstanceId) {
