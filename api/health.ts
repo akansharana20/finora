@@ -8,6 +8,7 @@ export default function handler(_req: any, res: any) {
 
   if (typeof res.setHeader === 'function') {
     res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
   }
 
   if (typeof res.status === 'function' && typeof res.json === 'function') {

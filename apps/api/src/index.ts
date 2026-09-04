@@ -70,6 +70,7 @@ const healthHandler = (_req: express.Request, res: express.Response) => {
 
 app.get('/api/health', healthHandler);
 app.get('/health', healthHandler);
+app.get('/api', healthHandler);
 app.get('/', healthHandler);
 
 // Modular Routes Registration
