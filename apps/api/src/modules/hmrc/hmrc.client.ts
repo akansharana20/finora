@@ -50,7 +50,7 @@ export class HmrcClient {
     this.baseUrl = (process.env.HMRC_BASE_URL || 'https://test-api.service.hmrc.gov.uk').replace(/\/+$/, '');
     this.clientId = process.env.HMRC_CLIENT_ID || '';
     this.clientSecret = process.env.HMRC_CLIENT_SECRET || '';
-    this.redirectUri = process.env.HMRC_REDIRECT_URI || 'https://finora-api.vercel.app/api/hmrc/callback';
+    this.redirectUri = process.env.HMRC_REDIRECT_URI || 'https://finora-api-alpha.vercel.app/api/hmrc/callback';
     
     // Explicit integration mode handling:
     // When INTEGRATION_MODE is 'sandbox' or 'production', mock mode is strictly disabled.

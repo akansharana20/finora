@@ -22,7 +22,7 @@ export class HmrcController {
       const state = query.state || body?.state;
       const oauthError = query.error || query.error_description;
 
-      const frontendUrl = (process.env.FRONTEND_URL || 'https://finora-web.vercel.app').replace(/\/+$/, '');
+      const frontendUrl = (process.env.FRONTEND_URL || 'https://finora-web-ecru.vercel.app').replace(/\/+$/, '');
 
       if (oauthError) {
         if (req.accepts('html') && req.method === 'GET') {
@@ -64,7 +64,7 @@ export class HmrcController {
 
       return sendSuccess(res, connection, 'Connected to HMRC successfully');
     } catch (error: any) {
-      const frontendUrl = (process.env.FRONTEND_URL || 'https://finora-web.vercel.app').replace(/\/+$/, '');
+      const frontendUrl = (process.env.FRONTEND_URL || 'https://finora-web-ecru.vercel.app').replace(/\/+$/, '');
       if (req.accepts('html') && req.method === 'GET') {
         return res.redirect(`${frontendUrl}/integrations?hmrc_error=${encodeURIComponent(error.message || 'connection_failed')}`);
       }

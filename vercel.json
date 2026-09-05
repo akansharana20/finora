@@ -3,68 +3,75 @@
   "builds": [
     {
       "src": "api/index.ts",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "apps/api/src/**",
+          "apps/api/prisma/**",
+          "prisma/**"
+        ]
+      }
     }
   ],
   "routes": [
-    {
-      "src": "/health",
-      "dest": "api/index.ts"
-    },
     {
       "src": "/api/health",
       "dest": "api/index.ts"
     },
     {
-      "src": "/api/auth(/.*)?",
+      "src": "/health",
       "dest": "api/index.ts"
     },
     {
-      "src": "/api/customers(/.*)?",
+      "src": "/api/auth(.*)",
       "dest": "api/index.ts"
     },
     {
-      "src": "/api/suppliers(/.*)?",
+      "src": "/api/customers(.*)",
       "dest": "api/index.ts"
     },
     {
-      "src": "/api/invoices(/.*)?",
+      "src": "/api/suppliers(.*)",
       "dest": "api/index.ts"
     },
     {
-      "src": "/api/expenses(/.*)?",
+      "src": "/api/invoices(.*)",
       "dest": "api/index.ts"
     },
     {
-      "src": "/api/payments(/.*)?",
+      "src": "/api/expenses(.*)",
       "dest": "api/index.ts"
     },
     {
-      "src": "/api/vat(/.*)?",
+      "src": "/api/payments(.*)",
       "dest": "api/index.ts"
     },
     {
-      "src": "/api/hmrc(/.*)?",
+      "src": "/api/vat(.*)",
       "dest": "api/index.ts"
     },
     {
-      "src": "/api/xero(/.*)?",
+      "src": "/api/hmrc(.*)",
       "dest": "api/index.ts"
     },
     {
-      "src": "/api/reports(/.*)?",
+      "src": "/api/xero(.*)",
       "dest": "api/index.ts"
     },
     {
-      "src": "/api/audit(/.*)?",
+      "src": "/api/reports(.*)",
       "dest": "api/index.ts"
     },
     {
-      "src": "/api/firms(/.*)?",
+      "src": "/api/audit(.*)",
       "dest": "api/index.ts"
     },
     {
-      "src": "/api(/.*)?",
+      "src": "/api/firms(.*)",
+      "dest": "api/index.ts"
+    },
+    {
+      "src": "/api(.*)",
       "dest": "api/index.ts"
     },
     {

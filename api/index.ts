@@ -6,19 +6,15 @@ function getApp() {
   if (appInitError) throw appInitError;
 
   try {
-    const mod = require('./apps/api/src/index');
+    // Path relative to this file (api/index.ts at monorepo root):
+    // api/ → ../apps/api/src/index
+    const mod = require('../apps/api/src/index');
     appInstance = mod.default || mod;
     return appInstance;
-  } catch (err1) {
-    try {
-      const mod = require('../apps/api/src/index');
-      appInstance = mod.default || mod;
-      return appInstance;
-    } catch (err2: any) {
-      appInitError = err2;
-      console.error('Failed to initialize Finora API Express app in root api/index.ts:', err2);
-      throw err2;
-    }
+  } catch (err: any) {
+    appInitError = err;
+    console.error('Failed to initialize Finora API Express app in root api/index.ts:', err);
+    throw err;
   }
 }
 
