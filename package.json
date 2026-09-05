@@ -1,38 +1,39 @@
-{
-  "name": "finora",
-  "version": "1.0.0",
-  "description": "Finora UK Accounting & Financial Management Platform",
-  "private": true,
-  "workspaces": [
-    "apps/web",
-    "apps/api"
-  ],
-  "scripts": {
-    "dev": "npm run dev --workspace=apps/api",
-    "dev:web": "npm run dev --workspace=apps/web",
-    "dev:api": "npm run dev --workspace=apps/api",
-    "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/web",
-    "lint": "npm run lint --workspace=apps/api && npm run lint --workspace=apps/web",
-    "test": "npm run test --workspace=apps/api && npm run test --workspace=apps/web",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma db push",
-    "db:seed": "tsx prisma/seed.ts",
-    "postinstall": "prisma generate"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/akansharana20/Finora.git"
-  },
-  "license": "ISC",
-  "devDependencies": {
-    "@types/node": "^20.14.9",
-    "prisma": "^5.22.0",
-    "tsx": "^4.16.2",
-    "typescript": "^5.4.5"
-  },
-  "dependencies": {
-    "@prisma/client": "^5.22.0",
-    "dotenv": "^16.4.5"
-  }
+﻿{
+    "name":  "finora",
+    "version":  "1.0.0",
+    "description":  "Finora UK Accounting \u0026 Financial Management Platform",
+    "private":  true,
+    "workspaces":  [
+                       "apps/web",
+                       "apps/api"
+                   ],
+    "scripts":  {
+                    "dev":  "npm run dev --workspace=apps/api",
+                    "dev:web":  "npm run dev --workspace=apps/web",
+                    "dev:api":  "npm run dev --workspace=apps/api",
+                    "build":  "npm run build --workspace=apps/api \u0026\u0026 npm run build --workspace=apps/web",
+                    "lint":  "npm run lint --workspace=apps/api \u0026\u0026 npm run lint --workspace=apps/web",
+                    "test":  "npm run test --workspace=apps/api \u0026\u0026 npm run test --workspace=apps/web",
+                    "db:generate":  "prisma generate",
+                    "db:push":  "prisma db push",
+                    "db:migrate":  "prisma db push",
+                    "db:seed":  "tsx prisma/seed.ts",
+                    "postinstall":  "prisma generate"
+                },
+    "repository":  {
+                       "type":  "git",
+                       "url":  "https://github.com/akansharana20/Finora.git"
+                   },
+    "license":  "ISC",
+    "devDependencies":  {
+
+                        },
+    "dependencies":  {
+                         "@prisma/client":  "^5.22.0",
+                         "dotenv":  "^16.4.5",
+                         "@types/node":  "^20.14.9",
+                         "prisma":  "^5.22.0",
+                         "tsx":  "^4.16.2",
+                         "typescript":  "^5.4.5"
+                     }
 }
