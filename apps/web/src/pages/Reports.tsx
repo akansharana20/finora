@@ -67,7 +67,7 @@ export const Reports: React.FC = () => {
             <h2 className="text-xl font-bold text-slate-900 tracking-tight">Financial Reports & Analytics</h2>
             <span className="bg-blue-100 text-blue-800 text-[11px] font-semibold px-2 py-0.5 rounded-full flex items-center space-x-1">
               <Building size={11} />
-              <span>{activeFirmName || 'Acme Consulting Ltd'}</span>
+              <span>{activeFirmName || user?.firmName || 'Company'}</span>
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">

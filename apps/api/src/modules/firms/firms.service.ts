@@ -1,5 +1,6 @@
 import prisma from '../../config/db';
-import { NotFoundError, BadRequestError } from '../../utils/errors';
+import { NotFoundError, BadRequestError, ForbiddenError } from '../../utils/errors';
+import { isUserAuthorizedForFirm } from '../../middleware/auth';
 
 export interface CreateFirmDto {
   name: string;
@@ -23,8 +24,33 @@ export interface CreateFirmDto {
 export interface UpdateFirmDto extends Partial<CreateFirmDto> {}
 
 export class FirmsService {
-  static async list() {
+  static async list(adminUserId?: string, userFirmId?: string) {
+    let whereClause: any = {};
+
+    if (adminUserId) {
+      const createdLogs = await prisma.auditLog.findMany({
+        where: {
+          userId: adminUserId,
+          action: { in: ['FIRM_CREATED', 'FIRM_REGISTERED'] },
+        },
+        select: { firmId: true },
+      });
+
+      const authorizedFirmIds = new Set<string>();
+      if (userFirmId) {
+        authorizedFirmIds.add(userFirmId);
+      }
+      createdLogs.forEach((log) => {
+        if (log.firmId) authorizedFirmIds.add(log.firmId);
+      });
+
+      whereClause = {
+        id: { in: Array.from(authorizedFirmIds) },
+      };
+    }
+
     return prisma.firm.findMany({
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
       include: {
         _count: {
@@ -39,7 +65,14 @@ export class FirmsService {
     });
   }
 
-  static async getById(id: string) {
+  static async getById(id: string, adminUserId?: string, userFirmId?: string) {
+    if (adminUserId && userFirmId) {
+      const authorized = await isUserAuthorizedForFirm(adminUserId, userFirmId, id);
+      if (!authorized) {
+        throw new ForbiddenError('You are not authorized to access this company');
+      }
+    }
+
     const firm = await prisma.firm.findUnique({
       where: { id },
       include: {
@@ -65,15 +98,27 @@ export class FirmsService {
   }
 
   static async create(dto: CreateFirmDto, adminUserId?: string) {
-    if (!dto.name || dto.name.trim() === '') {
-      throw new BadRequestError('Company name is required');
+    const trimmedName = dto.name?.trim();
+    if (!trimmedName || trimmedName.length < 2) {
+      throw new BadRequestError('Company trading name is required (minimum 2 characters)');
+    }
+
+    if (dto.financialYearStart !== undefined) {
+      const fys = Number(dto.financialYearStart);
+      if (isNaN(fys) || fys < 1 || fys > 12) {
+        throw new BadRequestError('Financial year start month must be between 1 (January) and 12 (December)');
+      }
+    }
+
+    if (dto.vatScheme && !['STANDARD', 'FLAT_RATE', 'CASH'].includes(dto.vatScheme)) {
+      throw new BadRequestError('Invalid VAT scheme. Must be STANDARD, FLAT_RATE, or CASH');
     }
 
     const firm = await prisma.$transaction(async (tx) => {
       const createdFirm = await tx.firm.create({
         data: {
-          name: dto.name.trim(),
-          legalName: dto.legalName?.trim() || dto.name.trim(),
+          name: trimmedName,
+          legalName: dto.legalName?.trim() || trimmedName,
           companyNumber: dto.companyNumber?.trim() || null,
           vatNumber: dto.vatNumber?.trim() || null,
           address: dto.address?.trim() || null,
@@ -86,12 +131,12 @@ export class FirmsService {
           contactPhone: dto.contactPhone?.trim() || null,
           vatScheme: dto.vatScheme || 'STANDARD',
           vatRegistered: dto.vatRegistered !== undefined ? dto.vatRegistered : true,
-          financialYearStart: dto.financialYearStart || 4,
+          financialYearStart: dto.financialYearStart ? Number(dto.financialYearStart) : 4,
           isActive: dto.isActive !== undefined ? dto.isActive : true,
         },
       });
 
-      // Initialize default UK VAT rates for the new company
+      // Initialize default UK VAT rates for bookkeeping in the new company
       await tx.vatRate.createMany({
         data: [
           { firmId: createdFirm.id, code: 'STANDARD', name: 'Standard Rate (20%)', rate: 20.0, isDefault: true, isSystem: true },
@@ -101,21 +146,10 @@ export class FirmsService {
         ],
       });
 
-      // Default VAT obligation (current UK quarter)
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      await tx.vatObligation.create({
-        data: {
-          firmId: createdFirm.id,
-          periodKey: `${currentYear}-Q3`,
-          startPeriod: new Date(`${currentYear}-07-01`),
-          endPeriod: new Date(`${currentYear}-09-30`),
-          dueDate: new Date(`${currentYear}-11-07`),
-          status: 'OPEN',
-        },
-      });
+      // NOTE: NO dummy/fabricated VAT obligations are created for newly created companies.
+      // In Phase 2, actual quarterly VAT obligations will be retrieved directly from HMRC MTD API.
 
-      // Audit log
+      // Audit log to record company creation and establish administrative ownership
       await tx.auditLog.create({
         data: {
           firmId: createdFirm.id,
@@ -133,8 +167,8 @@ export class FirmsService {
     return firm;
   }
 
-  static async update(id: string, dto: UpdateFirmDto, adminUserId?: string) {
-    await FirmsService.getById(id);
+  static async update(id: string, dto: UpdateFirmDto, adminUserId?: string, userFirmId?: string) {
+    await FirmsService.getById(id, adminUserId, userFirmId);
 
     const updated = await prisma.firm.update({
       where: { id },
@@ -153,7 +187,7 @@ export class FirmsService {
         contactPhone: dto.contactPhone !== undefined ? dto.contactPhone?.trim() : undefined,
         vatScheme: dto.vatScheme !== undefined ? dto.vatScheme : undefined,
         vatRegistered: dto.vatRegistered !== undefined ? dto.vatRegistered : undefined,
-        financialYearStart: dto.financialYearStart !== undefined ? dto.financialYearStart : undefined,
+        financialYearStart: dto.financialYearStart !== undefined ? Number(dto.financialYearStart) : undefined,
         isActive: dto.isActive !== undefined ? dto.isActive : undefined,
       },
     });
@@ -172,8 +206,8 @@ export class FirmsService {
     return updated;
   }
 
-  static async setStatus(id: string, isActive: boolean, adminUserId?: string) {
-    await FirmsService.getById(id);
+  static async setStatus(id: string, isActive: boolean, adminUserId?: string, userFirmId?: string) {
+    await FirmsService.getById(id, adminUserId, userFirmId);
 
     const updated = await prisma.firm.update({
       where: { id },
@@ -207,7 +241,7 @@ export class FirmsService {
   }
 
   static async updateProfile(firmId: string, dto: UpdateFirmDto, userId?: string) {
-    return FirmsService.update(firmId, dto, userId);
+    return FirmsService.update(firmId, dto, userId, firmId);
   }
 
   static async getUsers(firmId: string) {
@@ -224,3 +258,4 @@ export class FirmsService {
     });
   }
 }
+

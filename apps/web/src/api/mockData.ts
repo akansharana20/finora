@@ -846,12 +846,14 @@ export function handleMockApi(
       });
     }
 
-    attentionItems.push({
-      id: 'att-vat',
-      title: 'HMRC MTD VAT Return 2026-Q3 Due',
-      message: `Current Net VAT Liability is £${estimatedVatLiability.toFixed(2)}. Due 07 Nov 2026.`,
-      severity: estimatedVatLiability > 0 ? 'warning' : 'info',
-    });
+    if (currentFirmId === 'demo-firm-acme') {
+      attentionItems.push({
+        id: 'att-vat',
+        title: 'HMRC MTD VAT Return 2026-Q3 Due',
+        message: `Current Net VAT Liability is £${estimatedVatLiability.toFixed(2)}. Due 07 Nov 2026.`,
+        severity: estimatedVatLiability > 0 ? 'warning' : 'info',
+      });
+    }
 
     return {
       success: true,
@@ -1323,16 +1325,19 @@ export function handleMockApi(
     const returnKey = `${currentFirmId}_2026-Q3`;
     const storedReturn = store.vatReturns?.[returnKey];
 
+    const hasObligations = currentFirmId === 'demo-firm-acme';
     return {
       success: true,
       data: {
-        currentPeriod: {
-          periodKey: '2026-Q3',
-          startDate: '2026-07-01',
-          endDate: '2026-09-30',
-          dueDate: '2026-11-07',
-          status: storedReturn?.status || 'OPEN',
-        },
+        currentPeriod: hasObligations
+          ? {
+              periodKey: '2026-Q3',
+              startDate: '2026-07-01',
+              endDate: '2026-09-30',
+              dueDate: '2026-11-07',
+              status: storedReturn?.status || 'OPEN',
+            }
+          : null,
         liveCalculation: {
           period: { startDate: '2026-07-01', endDate: '2026-09-30' },
           box1: totalSalesVat.toFixed(2),
@@ -1349,40 +1354,45 @@ export function handleMockApi(
             expenses: firmExpenses.length,
           },
         },
-        obligations: [
-          {
-            id: `ob-1-${currentFirmId}`,
-            periodKey: '2026-Q3',
-            startPeriod: '2026-07-01',
-            endPeriod: '2026-09-30',
-            dueDate: '2026-11-07',
-            status: storedReturn?.status === 'SUBMITTED' ? 'FULFILLED' : 'OPEN',
-          },
-          {
-            id: `ob-2-${currentFirmId}`,
-            periodKey: '2026-Q2',
-            startPeriod: '2026-04-01',
-            endPeriod: '2026-06-30',
-            dueDate: '2026-08-07',
-            status: 'FULFILLED',
-          },
-        ],
-        returns: storedReturn
-          ? [storedReturn]
-          : [
+        obligations: hasObligations
+          ? [
               {
-                id: `ret-prev-${currentFirmId}`,
+                id: `ob-1-${currentFirmId}`,
+                periodKey: '2026-Q3',
+                startPeriod: '2026-07-01',
+                endPeriod: '2026-09-30',
+                dueDate: '2026-11-07',
+                status: storedReturn?.status === 'SUBMITTED' ? 'FULFILLED' : 'OPEN',
+              },
+              {
+                id: `ob-2-${currentFirmId}`,
                 periodKey: '2026-Q2',
                 startPeriod: '2026-04-01',
                 endPeriod: '2026-06-30',
-                box1: 1500.0,
-                box4: 450.0,
-                box5: 1050.0,
-                status: 'SUBMITTED',
-                submittedAt: '2026-08-05T15:20:00.000Z',
-                hmrcCorrelationId: 'HMRC-ACK-2026Q2-DEMO',
+                dueDate: '2026-08-07',
+                status: 'FULFILLED',
               },
-            ],
+            ]
+          : [],
+        returns: hasObligations
+          ? (storedReturn
+              ? [storedReturn]
+              : [
+                  {
+                    id: `ret-prev-${currentFirmId}`,
+                    periodKey: '2026-Q2',
+                    startPeriod: '2026-04-01',
+                    endPeriod: '2026-06-30',
+                    box1: 1500.0,
+                    box4: 450.0,
+                    box5: 1050.0,
+                    status: 'SUBMITTED',
+                    submittedAt: '2026-08-05T15:20:00.000Z',
+                    hmrcCorrelationId: 'HMRC-ACK-2026Q2-DEMO',
+                  },
+                ])
+          : (storedReturn ? [storedReturn] : []),
+
         hmrcConnectionStatus: {
           isConnected: false,
           vrn: currentFirm.vatNumber || null,

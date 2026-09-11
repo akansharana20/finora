@@ -172,9 +172,12 @@ export const Companies: React.FC = () => {
       });
 
       if (res.success && res.data) {
-        setSuccessMessage(`Company "${formData.name}" created successfully`);
+        const createdCompany = res.data;
+        const newCompanyName = createdCompany.name || formData.name;
+        setSuccessMessage(`Company "${newCompanyName}" created successfully. Switched active workspace to this company.`);
         setShowModal(false);
         fetchCompanies();
+        switchCompany(createdCompany.id, newCompanyName);
       } else {
         setError(res.error?.message || 'Failed to create company');
       }
@@ -274,13 +277,14 @@ export const Companies: React.FC = () => {
               Currently Selected Active Company
             </div>
             <div className="text-base font-bold text-white flex items-center space-x-2">
-              <span>{companies.find((c) => c.id === activeFirmId)?.name || user?.firmName || 'Acme Consulting Ltd'}</span>
+              <span>{companies.find((c) => c.id === activeFirmId)?.name || user?.firmName || 'Company'}</span>
               <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] px-2 py-0.5 rounded font-medium">
                 Active Context
               </span>
             </div>
           </div>
         </div>
+
 
         <div className="text-xs text-slate-300 flex items-center space-x-4">
           <div>

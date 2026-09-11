@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { LogOut, Building } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export const Header: React.FC = () => {
   const { user, logout, activeFirmName } = useAuth();
@@ -14,10 +15,14 @@ export const Header: React.FC = () => {
         <span className="hidden sm:inline-block bg-slate-100 text-slate-600 text-xs font-semibold px-2 py-0.5 rounded border border-slate-200">
           UK GAAP & MTD VAT
         </span>
-        <span className="hidden md:flex items-center space-x-1.5 bg-blue-50 text-blue-800 border border-blue-200 text-xs font-semibold px-2.5 py-0.5 rounded-md">
+        <Link
+          to="/companies"
+          className="hidden md:flex items-center space-x-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-semibold px-2.5 py-0.5 rounded-md transition-colors"
+          title="Manage & Switch Companies"
+        >
           <Building size={12} className="text-blue-600" />
-          <span className="truncate max-w-[160px]">{activeFirmName || user?.firmName || 'Acme Consulting Ltd'}</span>
-        </span>
+          <span className="truncate max-w-[160px]">{activeFirmName || user?.firmName || 'Company'}</span>
+        </Link>
       </div>
 
       <div className="flex items-center space-x-4">

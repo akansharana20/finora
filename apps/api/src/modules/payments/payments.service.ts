@@ -73,6 +73,16 @@ export class PaymentsService {
       }
     }
 
+    if (dto.expenseId) {
+      const expense = await prisma.expense.findFirst({
+        where: { id: dto.expenseId, firmId },
+      });
+
+      if (!expense) {
+        throw new NotFoundError('Expense not found or does not belong to this company');
+      }
+    }
+
     // Process via provider abstraction
     const providerResult = await PaymentsService.provider.processPayment(dto.amount, 'GBP', dto.reference);
 

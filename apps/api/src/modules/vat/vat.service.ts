@@ -17,9 +17,14 @@ export class VatService {
 
     const openObligation = obligations.find((o) => o.status === VatObligationStatus.OPEN) || obligations[0];
 
-    // Current period dates
-    const startDate = openObligation ? openObligation.startPeriod : new Date('2026-04-01');
-    const endDate = openObligation ? openObligation.endPeriod : new Date('2026-06-30');
+    // Dates for live calculation preview: use open obligation if present, else current calendar quarter
+    const now = new Date();
+    const currentQuarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+    const defaultStart = new Date(now.getFullYear(), currentQuarterStartMonth, 1);
+    const defaultEnd = new Date(now.getFullYear(), currentQuarterStartMonth + 3, 0);
+
+    const startDate = openObligation ? openObligation.startPeriod : defaultStart;
+    const endDate = openObligation ? openObligation.endPeriod : defaultEnd;
 
     // Calculate current live VAT position
     const calculation = await VatService.calculateVatPeriod(firmId, { startDate, endDate });
@@ -35,13 +40,15 @@ export class VatService {
     });
 
     return {
-      currentPeriod: {
-        periodKey: openObligation ? openObligation.periodKey : '26C2',
-        startDate,
-        endDate,
-        dueDate: openObligation ? openObligation.dueDate : new Date('2026-08-07'),
-        status: openObligation ? openObligation.status : VatObligationStatus.OPEN,
-      },
+      currentPeriod: openObligation
+        ? {
+            periodKey: openObligation.periodKey,
+            startDate: openObligation.startPeriod,
+            endDate: openObligation.endPeriod,
+            dueDate: openObligation.dueDate,
+            status: openObligation.status,
+          }
+        : null,
       liveCalculation: calculation,
       obligations,
       returns,
@@ -53,6 +60,7 @@ export class VatService {
       },
     };
   }
+
 
   static async calculateVatPeriod(firmId: string, params: CalculateVatParams) {
     const start = new Date(params.startDate);
@@ -132,10 +140,15 @@ export class VatService {
       where: { firmId, periodKey },
     });
 
-    const startPeriod = obligation ? obligation.startPeriod : new Date('2026-04-01');
-    const endPeriod = obligation ? obligation.endPeriod : new Date('2026-06-30');
+    if (!obligation) {
+      throw new NotFoundError(`VAT obligation for period ${periodKey} not found for this company`);
+    }
 
-    const calc = await VatService.calculateVatPeriod(firmId, { startDate: startPeriod, endDate: endPeriod });
+    const calc = await VatService.calculateVatPeriod(firmId, {
+      startDate: obligation.startPeriod,
+      endDate: obligation.endPeriod,
+    });
+
 
     // Save or update draft return
     const vatReturn = await prisma.vatReturn.upsert({
@@ -157,8 +170,8 @@ export class VatService {
       create: {
         firmId,
         periodKey,
-        startPeriod,
-        endPeriod,
+        startPeriod: obligation.startPeriod,
+        endPeriod: obligation.endPeriod,
         box1: calc.box1,
         box2: calc.box2,
         box3: calc.box3,

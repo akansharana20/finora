@@ -8,7 +8,7 @@
     "build": "prisma generate --schema=prisma/schema.prisma && tsc",
     "postinstall": "prisma generate --schema=prisma/schema.prisma",
     "lint": "tsc --noEmit",
-    "test": "tsc --noEmit && tsx test/hmrc.test.ts",
+    "test": "tsc --noEmit && tsx test/hmrc.test.ts && tsx test/multiCompany.test.ts",
     "start": "node dist/src/index.js"
   },
   "license": "ISC",

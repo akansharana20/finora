@@ -174,27 +174,35 @@ export const Dashboard: React.FC = () => {
               </span>
             </div>
 
-            <div className="divide-y divide-slate-100 mt-3">
-              {attentionItems.map((item: any) => (
-                <div key={item.id} className="py-3 first:pt-0 last:pb-0 flex items-start space-x-3">
-                  <div
-                    className={`p-2 rounded-lg shrink-0 ${
-                      item.severity === 'error'
-                        ? 'bg-red-50 text-red-600'
-                        : item.severity === 'warning'
-                        ? 'bg-amber-50 text-amber-600'
-                        : 'bg-blue-50 text-blue-600'
-                    }`}
-                  >
-                    <AlertTriangle size={16} />
+            {attentionItems.length > 0 ? (
+              <div className="divide-y divide-slate-100 mt-3">
+                {attentionItems.map((item: any) => (
+                  <div key={item.id} className="py-3 first:pt-0 last:pb-0 flex items-start space-x-3">
+                    <div
+                      className={`p-2 rounded-lg shrink-0 ${
+                        item.severity === 'error'
+                          ? 'bg-red-50 text-red-600'
+                          : item.severity === 'warning'
+                          ? 'bg-amber-50 text-amber-600'
+                          : 'bg-blue-50 text-blue-600'
+                      }`}
+                    >
+                      <AlertTriangle size={16} />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-800">{item.title}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{item.message}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-xs font-bold text-slate-800">{item.title}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{item.message}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-slate-400 text-xs flex flex-col items-center justify-center">
+                <CheckCircle2 size={24} className="text-emerald-500 mb-1" />
+                <span className="font-semibold text-slate-700">All systems clear</span>
+                <span className="text-[11px] text-slate-400">No overdue items or urgent tax deadlines</span>
+              </div>
+            )}
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-100">
@@ -279,20 +287,28 @@ export const Dashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {overdueInvoices.slice(0, 5).map((inv: any) => (
-                  <tr key={inv.id} className="hover:bg-slate-50">
-                    <td className="py-2.5 font-bold text-blue-600">
-                      <Link to={`/invoices/${inv.id}`}>{inv.invoiceNumber}</Link>
-                    </td>
-                    <td className="py-2.5 font-medium text-slate-800">{inv.customerName}</td>
-                    <td className="py-2.5 text-red-600 font-medium">
-                      {new Date(inv.dueDate).toLocaleDateString('en-GB')}
-                    </td>
-                    <td className="py-2.5 text-right font-bold text-slate-900">
-                      £{Number(inv.balanceDue).toFixed(2)}
+                {overdueInvoices.length > 0 ? (
+                  overdueInvoices.slice(0, 5).map((inv: any) => (
+                    <tr key={inv.id} className="hover:bg-slate-50">
+                      <td className="py-2.5 font-bold text-blue-600">
+                        <Link to={`/invoices/${inv.id}`}>{inv.invoiceNumber}</Link>
+                      </td>
+                      <td className="py-2.5 font-medium text-slate-800">{inv.customerName}</td>
+                      <td className="py-2.5 text-red-600 font-medium">
+                        {new Date(inv.dueDate).toLocaleDateString('en-GB')}
+                      </td>
+                      <td className="py-2.5 text-right font-bold text-slate-900">
+                        £{Number(inv.balanceDue).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="py-6 text-center text-slate-400 text-xs">
+                      No overdue customer invoices. All accounts in good standing.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
@@ -305,21 +321,28 @@ export const Dashboard: React.FC = () => {
             <span className="text-xs text-slate-400">Audit trail</span>
           </div>
 
-          <div className="space-y-3">
-            {recentActivity.slice(0, 6).map((log: any) => (
-              <div key={log.id} className="flex items-start space-x-3 text-xs">
-                <div className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
-                <div className="flex-1">
-                  <div className="text-slate-800 font-medium">{log.description}</div>
-                  <div className="text-slate-400 text-[11px] mt-0.5">
-                    {typeof log.user === 'object' ? log.user?.name || log.user?.email || 'System' : (log.user || 'System')} • {new Date(log.timestamp).toLocaleString('en-GB')}
+          {recentActivity && recentActivity.length > 0 ? (
+            <div className="space-y-3">
+              {recentActivity.slice(0, 6).map((log: any) => (
+                <div key={log.id} className="flex items-start space-x-3 text-xs">
+                  <div className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
+                  <div className="flex-1">
+                    <div className="text-slate-800 font-medium">{log.description}</div>
+                    <div className="text-slate-400 text-[11px] mt-0.5">
+                      {typeof log.user === 'object' ? log.user?.name || log.user?.email || 'System' : (log.user || 'System')} • {new Date(log.timestamp).toLocaleString('en-GB')}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-slate-400 text-xs">
+              No recent activity recorded for this company.
+            </div>
+          )}
         </div>
       </div>
+
     </div>
   );
 };

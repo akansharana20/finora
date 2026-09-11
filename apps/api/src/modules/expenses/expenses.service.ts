@@ -1,5 +1,5 @@
 import prisma from '../../config/db';
-import { NotFoundError } from '../../utils/errors';
+import { NotFoundError, BadRequestError } from '../../utils/errors';
 import { ExpensePaymentStatus } from '@prisma/client';
 import Decimal from 'decimal.js';
 
@@ -58,7 +58,17 @@ export class ExpensesService {
   }
 
   static async create(firmId: string, dto: CreateExpenseDto) {
+    if (dto.supplierId) {
+      const supplier = await prisma.supplier.findFirst({
+        where: { id: dto.supplierId, firmId },
+      });
+      if (!supplier) {
+        throw new BadRequestError('Supplier not found or does not belong to this company');
+      }
+    }
+
     const amountDec = new Decimal(dto.amount);
+
     const vatRateDec = new Decimal(dto.vatRate !== undefined ? dto.vatRate : 20.0);
     const vatAmountDec = amountDec.times(vatRateDec).dividedBy(100).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
     const totalDec = amountDec.plus(vatAmountDec).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);

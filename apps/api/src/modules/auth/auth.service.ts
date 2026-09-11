@@ -152,9 +152,9 @@ export class AuthService {
     };
   }
 
-  static async getProfile(userId: string, firmId: string) {
-    const user = await prisma.user.findFirst({
-      where: { id: userId, firmId },
+  static async getProfile(userId: string, activeFirmId?: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
       include: { firm: true },
     });
 
@@ -162,21 +162,39 @@ export class AuthService {
       throw new NotFoundError('User profile not found');
     }
 
+    let activeFirm = user.firm;
+
+    if (activeFirmId && activeFirmId !== user.firmId) {
+      const { isUserAuthorizedForFirm } = await import('../../middleware/auth');
+      const authorized = await isUserAuthorizedForFirm(user.id, user.firmId, activeFirmId);
+      if (authorized) {
+        const found = await prisma.firm.findUnique({
+          where: { id: activeFirmId },
+        });
+        if (found && found.isActive) {
+          activeFirm = found;
+        }
+      }
+    }
+
     return {
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
+      firmId: activeFirm.id,
+      firmName: activeFirm.name,
       firm: {
-        id: user.firm.id,
-        name: user.firm.name,
-        companyNumber: user.firm.companyNumber,
-        vatNumber: user.firm.vatNumber,
-        address: user.firm.address,
-        postcode: user.firm.postcode,
-        country: user.firm.country,
-        currency: user.firm.currency,
+        id: activeFirm.id,
+        name: activeFirm.name,
+        companyNumber: activeFirm.companyNumber,
+        vatNumber: activeFirm.vatNumber,
+        address: activeFirm.address,
+        postcode: activeFirm.postcode,
+        country: activeFirm.country,
+        currency: activeFirm.currency,
       },
     };
   }
 }
+

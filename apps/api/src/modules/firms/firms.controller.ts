@@ -3,9 +3,9 @@ import { FirmsService } from './firms.service';
 import { sendSuccess } from '../../utils/response';
 
 export class FirmsController {
-  static async list(_req: Request, res: Response, next: NextFunction) {
+  static async list(req: Request, res: Response, next: NextFunction) {
     try {
-      const firms = await FirmsService.list();
+      const firms = await FirmsService.list(req.user?.id, req.user?.firmId);
       return sendSuccess(res, firms);
     } catch (error) {
       return next(error);
@@ -14,7 +14,7 @@ export class FirmsController {
 
   static async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const firm = await FirmsService.getById(req.params.id);
+      const firm = await FirmsService.getById(req.params.id, req.user?.id, req.user?.firmId);
       return sendSuccess(res, firm);
     } catch (error) {
       return next(error);
@@ -32,7 +32,7 @@ export class FirmsController {
 
   static async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const firm = await FirmsService.update(req.params.id, req.body, req.user?.id);
+      const firm = await FirmsService.update(req.params.id, req.body, req.user?.id, req.user?.firmId);
       return sendSuccess(res, firm, 'Company updated successfully');
     } catch (error) {
       return next(error);
@@ -42,12 +42,13 @@ export class FirmsController {
   static async setStatus(req: Request, res: Response, next: NextFunction) {
     try {
       const { isActive } = req.body;
-      const firm = await FirmsService.setStatus(req.params.id, Boolean(isActive), req.user?.id);
+      const firm = await FirmsService.setStatus(req.params.id, Boolean(isActive), req.user?.id, req.user?.firmId);
       return sendSuccess(res, firm, `Company ${isActive ? 'activated' : 'deactivated'} successfully`);
     } catch (error) {
       return next(error);
     }
   }
+
 
   static async getProfile(req: Request, res: Response, next: NextFunction) {
     try {

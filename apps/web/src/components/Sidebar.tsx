@@ -98,7 +98,7 @@ export const Sidebar: React.FC = () => {
               <div className="flex items-center space-x-2 overflow-hidden">
                 <Building size={14} className="text-blue-400 shrink-0" />
                 <span className="text-xs font-semibold text-white truncate group-hover:text-blue-300">
-                  {activeFirmName || user?.firmName || 'Acme Consulting Ltd'}
+                  {activeFirmName || user?.firmName || 'Company'}
                 </span>
               </div>
               <ChevronsUpDown size={14} className="text-slate-500 group-hover:text-slate-300 shrink-0 ml-1" />
@@ -107,7 +107,7 @@ export const Sidebar: React.FC = () => {
             <div className="flex items-center space-x-2">
               <Building size={14} className="text-slate-400" />
               <span className="text-xs font-semibold text-slate-200 truncate">
-                {activeFirmName || user?.firmName || 'Acme Consulting Ltd'}
+                {activeFirmName || user?.firmName || 'Company'}
               </span>
             </div>
           )}
