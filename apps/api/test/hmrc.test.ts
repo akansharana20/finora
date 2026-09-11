@@ -2,6 +2,9 @@ import assert from 'assert';
 import { encryptToken, decryptToken } from '../src/utils/crypto';
 import { buildHmrcFraudHeaders } from '../src/modules/hmrc/hmrc.fraudPrevention';
 import { HmrcClient } from '../src/modules/hmrc/hmrc.client';
+import { HmrcService } from '../src/modules/hmrc/hmrc.service';
+import prisma from '../src/config/db';
+import jwt from 'jsonwebtoken';
 
 async function runTests() {
   console.log('🧪 Starting HMRC & Finora Integration Tests...\n');
@@ -231,6 +234,68 @@ async function runTests() {
     assert.ok(allHeaders[header] !== undefined, `Required fraud header missing: ${header}`);
   }
   console.log('✅ Passed Test 10: All required HMRC fraud prevention headers are present.\n');
+
+  // Test 11: OAuth state is signed, expiring, and single-use
+  console.log('Test 11: HMRC OAuth State Integrity and Replay Protection');
+  const stateSecret = process.env.HMRC_STATE_SECRET || process.env.JWT_SECRET || 'finora-dev-hmrc-state-secret-change-in-production';
+  const originalOAuthStateUpdateMany = (prisma as any).hmrcOAuthState.updateMany;
+  (prisma as any).hmrcOAuthState.updateMany = async () => ({ count: 1 });
+  try {
+    const validState = jwt.sign({ firmId: 'firm-b', jti: 'state-1' }, stateSecret, { expiresIn: 600 });
+    assert.strictEqual(await HmrcService.consumeOAuthState(validState), 'firm-b');
+
+    let tamperedRejected = false;
+    try {
+      await HmrcService.consumeOAuthState(`${validState}tampered`);
+    } catch (err: any) {
+      tamperedRejected = err.statusCode === 400;
+    }
+    assert.strictEqual(tamperedRejected, true, 'Tampered OAuth state must be rejected');
+
+    const expiredState = jwt.sign({ firmId: 'firm-b', jti: 'state-expired' }, stateSecret, { expiresIn: -1 });
+    let expiredRejected = false;
+    try {
+      await HmrcService.consumeOAuthState(expiredState);
+    } catch (err: any) {
+      expiredRejected = err.statusCode === 400;
+    }
+    assert.strictEqual(expiredRejected, true, 'Expired OAuth state must be rejected');
+
+    (prisma as any).hmrcOAuthState.updateMany = async () => ({ count: 0 });
+    let replayRejected = false;
+    try {
+      await HmrcService.consumeOAuthState(validState);
+    } catch (err: any) {
+      replayRejected = err.statusCode === 400;
+    }
+    assert.strictEqual(replayRejected, true, 'Replayed OAuth state must be rejected');
+  } finally {
+    (prisma as any).hmrcOAuthState.updateMany = originalOAuthStateUpdateMany;
+  }
+  console.log('✅ Passed Test 11: HMRC OAuth state cannot be tampered with, expired, or replayed.\n');
+
+  // Test 12: HMRC status is resolved from the requested firm only
+  console.log('Test 12: HMRC Status Company Isolation');
+  const originalConnectionFindUnique = (prisma as any).hmrcConnection.findUnique;
+  const originalFirmFindUnique = (prisma as any).firm.findUnique;
+  (prisma as any).hmrcConnection.findUnique = async (query: any) => query.where.firmId === 'firm-a'
+    ? { isConnected: true, vrn: '111222333', environment: 'sandbox', lastSyncAt: null, expiresAt: null }
+    : null;
+  (prisma as any).firm.findUnique = async (query: any) => query.where.id === 'firm-a'
+    ? { vatRegistered: true, vatNumber: '111222333' }
+    : { vatRegistered: true, vatNumber: '444555666' };
+  try {
+    const companyAStatus = await HmrcService.getStatus('firm-a');
+    const companyBStatus = await HmrcService.getStatus('firm-b');
+    assert.strictEqual(companyAStatus.isConnected, true);
+    assert.strictEqual(companyAStatus.vrn, '111222333');
+    assert.strictEqual(companyBStatus.isConnected, false);
+    assert.strictEqual(companyBStatus.vrn, '444555666');
+  } finally {
+    (prisma as any).hmrcConnection.findUnique = originalConnectionFindUnique;
+    (prisma as any).firm.findUnique = originalFirmFindUnique;
+  }
+  console.log('✅ Passed Test 12: HMRC status never falls back to another company.\n');
 
   console.log('🎉 All HMRC & Finora Integration Tests Passed Successfully!');
 }

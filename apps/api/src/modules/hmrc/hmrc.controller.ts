@@ -35,25 +35,14 @@ export class HmrcController {
         throw new BadRequestError('Missing authorization code from HMRC callback');
       }
 
-      // Determine firmId from authenticated session or from validated state parameter
-      let firmId = req.firmId;
-      if (!firmId && state) {
-        try {
-          const parsed = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
-          if (parsed && typeof parsed.firmId === 'string') {
-            firmId = parsed.firmId;
-          }
-        } catch (e) {
-          // Invalid state encoding
-        }
-      }
-
-      if (!firmId) {
+      if (!state) {
         if (req.accepts('html') && req.method === 'GET') {
           return res.redirect(`${frontendUrl}/integrations?hmrc_error=missing_firm_context`);
         }
         throw new BadRequestError('Unable to identify firm for HMRC connection callback');
       }
+
+      const firmId = await HmrcService.consumeOAuthState(state);
 
       const connection = await HmrcService.handleCallback(firmId, code);
 

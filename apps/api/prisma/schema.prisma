@@ -87,6 +87,7 @@ model Firm {
   vatObligations  VatObligation[]
   vatReturns      VatReturn[]
   hmrcConnection  HmrcConnection?
+  hmrcOAuthStates HmrcOAuthState[]
   xeroConnection  XeroConnection?
   auditLogs       AuditLog[]
 
@@ -334,6 +335,21 @@ model HmrcConnection {
   firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
 
   @@map("hmrc_connections")
+}
+
+model HmrcOAuthState {
+  id        String    @id @default(uuid())
+  jti       String    @unique
+  firmId    String
+  expiresAt DateTime
+  consumedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+
+  @@index([firmId])
+  @@index([expiresAt])
+  @@map("hmrc_oauth_states")
 }
 
 model XeroConnection {

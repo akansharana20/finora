@@ -53,7 +53,7 @@ export const VatOverview: React.FC = () => {
               {hmrcConnectionStatus.isConnected ? 'HMRC Connected' : 'HMRC Not Connected'}
             </span>
             <span className="text-[10px] text-slate-500">
-              VRN: {hmrcConnectionStatus.vrn || '987654321'} ({hmrcConnectionStatus.environment})
+              VRN: {hmrcConnectionStatus.vrn || 'Not configured'} ({hmrcConnectionStatus.environment})
             </span>
           </div>
           <Link

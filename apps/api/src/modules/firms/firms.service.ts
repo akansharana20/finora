@@ -23,6 +23,14 @@ export interface CreateFirmDto {
 
 export interface UpdateFirmDto extends Partial<CreateFirmDto> {}
 
+function validateVatNumber(vatNumber?: string) {
+  if (vatNumber === undefined || vatNumber.trim() === '') return;
+  const normalized = vatNumber.replace(/\D/g, '');
+  if (normalized.length !== 9) {
+    throw new BadRequestError('VAT Registration Number must contain 9 digits');
+  }
+}
+
 export class FirmsService {
   static async list(adminUserId?: string, userFirmId?: string) {
     let whereClause: any = {};
@@ -114,6 +122,8 @@ export class FirmsService {
       throw new BadRequestError('Invalid VAT scheme. Must be STANDARD, FLAT_RATE, or CASH');
     }
 
+    validateVatNumber(dto.vatNumber);
+
     const firm = await prisma.$transaction(async (tx) => {
       const createdFirm = await tx.firm.create({
         data: {
@@ -169,6 +179,7 @@ export class FirmsService {
 
   static async update(id: string, dto: UpdateFirmDto, adminUserId?: string, userFirmId?: string) {
     await FirmsService.getById(id, adminUserId, userFirmId);
+    validateVatNumber(dto.vatNumber);
 
     const updated = await prisma.firm.update({
       where: { id },

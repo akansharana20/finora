@@ -5,14 +5,34 @@ import { HmrcClient, HmrcSubmissionReceipt } from './hmrc.client';
 import { buildHmrcFraudHeaders } from './hmrc.fraudPrevention';
 import { encryptToken, decryptToken } from '../../utils/crypto';
 import { VatReturnStatus, VatObligationStatus } from '@prisma/client';
+import jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
+
+const HMRC_STATE_TTL_SECONDS = 10 * 60;
+
+function getHmrcStateSecret() {
+  return process.env.HMRC_STATE_SECRET || process.env.JWT_SECRET || 'finora-dev-hmrc-state-secret-change-in-production';
+}
+
+function normalizeVrn(vatNumber?: string | null) {
+  return vatNumber?.replace(/\D/g, '') || '';
+}
 
 export class HmrcService {
   private static client = new HmrcClient();
 
   static async getConnectUrl(firmId: string) {
-    const firm = await prisma.firm.findUnique({ where: { id: firmId } });
+    const firm = await prisma.firm.findUnique({ where: { id: firmId }, select: { id: true, vatRegistered: true, vatNumber: true } });
     if (!firm) {
       throw new NotFoundError('Firm not found');
+    }
+
+    const vrn = normalizeVrn(firm.vatNumber);
+    if (!firm.vatRegistered) {
+      throw new BadRequestError('HMRC MTD VAT is only available for VAT-registered companies.');
+    }
+    if (vrn.length !== 9) {
+      throw new BadRequestError('A valid 9-digit VAT Registration Number (VRN) is required before connecting HMRC.');
     }
 
     const mode = (process.env.INTEGRATION_MODE || '').toLowerCase();
@@ -20,9 +40,34 @@ export class HmrcService {
       throw new BadRequestError('HMRC OAuth is not configured: HMRC_CLIENT_ID environment variable is missing on the API server.');
     }
 
-    // State payload encodes firmId and timestamp
-    const state = Buffer.from(JSON.stringify({ firmId, timestamp: Date.now() })).toString('base64');
+    const jti = randomUUID();
+    const expiresAt = new Date(Date.now() + HMRC_STATE_TTL_SECONDS * 1000);
+    await prisma.hmrcOAuthState.create({ data: { jti, firmId, expiresAt } });
+    const state = jwt.sign({ firmId, jti }, getHmrcStateSecret(), { expiresIn: HMRC_STATE_TTL_SECONDS });
     return HmrcService.client.getAuthorizationUrl(state);
+  }
+
+  static async consumeOAuthState(state: string) {
+    let payload: { firmId?: string; jti?: string };
+    try {
+      payload = jwt.verify(state, getHmrcStateSecret()) as { firmId?: string; jti?: string };
+    } catch {
+      throw new BadRequestError('Invalid or expired HMRC OAuth state.');
+    }
+
+    if (!payload.firmId || !payload.jti) {
+      throw new BadRequestError('Invalid HMRC OAuth state.');
+    }
+
+    const claimed = await prisma.hmrcOAuthState.updateMany({
+      where: { jti: payload.jti, firmId: payload.firmId, consumedAt: null, expiresAt: { gt: new Date() } },
+      data: { consumedAt: new Date() },
+    });
+    if (claimed.count !== 1) {
+      throw new BadRequestError('Invalid, expired, or already-used HMRC OAuth state.');
+    }
+
+    return payload.firmId;
   }
 
   static async handleCallback(firmId: string, code: string) {
@@ -31,8 +76,8 @@ export class HmrcService {
       throw new NotFoundError('Firm not found');
     }
 
-    const vrn = firm.vatNumber ? firm.vatNumber.replace(/[^0-9]/g, '') : '';
-    if (!vrn) {
+    const vrn = normalizeVrn(firm.vatNumber);
+    if (!firm.vatRegistered || vrn.length !== 9) {
       throw new BadRequestError('Firm has no VAT Registration Number (VRN) configured. Please set a VAT number in company settings.');
     }
 
@@ -128,9 +173,9 @@ export class HmrcService {
   }
 
   static async getStatus(firmId: string) {
-    const connection = await prisma.hmrcConnection.findUnique({
+    const [connection, firm] = await Promise.all([prisma.hmrcConnection.findUnique({
       where: { firmId },
-    });
+    }), prisma.firm.findUnique({ where: { id: firmId }, select: { vatRegistered: true, vatNumber: true } })]);
 
     const mode = (process.env.INTEGRATION_MODE || '').toLowerCase();
     const isMock = mode === 'mock';
@@ -138,8 +183,10 @@ export class HmrcService {
     const environment = mode === 'mock' ? 'mock' : (process.env.HMRC_ENVIRONMENT || (mode === 'production' ? 'production' : 'sandbox'));
 
     return {
-      isConnected: connection?.isConnected || false,
-      vrn: connection?.vrn || null,
+      isConnected: Boolean(firm?.vatRegistered && connection?.isConnected),
+      vrn: connection?.vrn || normalizeVrn(firm?.vatNumber) || null,
+      vatRegistered: firm?.vatRegistered || false,
+      hmrcAvailable: Boolean(firm?.vatRegistered && normalizeVrn(firm.vatNumber).length === 9),
       environment: connection?.environment || environment,
       lastSyncAt: connection?.lastSyncAt || null,
       expiresAt: connection?.expiresAt || null,
@@ -184,8 +231,8 @@ export class HmrcService {
     });
 
     const firm = await prisma.firm.findUnique({ where: { id: firmId } });
-    const vrn = connection?.vrn || (firm?.vatNumber ? firm.vatNumber.replace(/[^0-9]/g, '') : '');
-    if (!vrn) {
+    const vrn = connection?.vrn || normalizeVrn(firm?.vatNumber);
+    if (!firm?.vatRegistered || vrn.length !== 9) {
       throw new BadRequestError('No VAT Registration Number (VRN) found. Please set a VAT number in company settings.');
     }
 
@@ -262,8 +309,8 @@ export class HmrcService {
     });
 
     const firm = await prisma.firm.findUnique({ where: { id: firmId } });
-    const vrn = connection?.vrn || (firm?.vatNumber ? firm.vatNumber.replace(/[^0-9]/g, '') : '');
-    if (!vrn) {
+    const vrn = connection?.vrn || normalizeVrn(firm?.vatNumber);
+    if (!firm?.vatRegistered || vrn.length !== 9) {
       throw new BadRequestError('No VAT Registration Number (VRN) found. Please set a VAT number in company settings.');
     }
 

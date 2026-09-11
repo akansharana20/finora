@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { Landmark, Share2, CreditCard, RefreshCw, CheckCircle2, AlertCircle, Shield, ExternalLink } from 'lucide-react';
 
 export const Integrations: React.FC = () => {
+  const { activeFirmId } = useAuth();
   const [hmrcStatus, setHmrcStatus] = useState<any>(null);
   const [hmrcError, setHmrcError] = useState<string | null>(null);
   const [connectingHmrc, setConnectingHmrc] = useState(false);
@@ -14,8 +16,10 @@ export const Integrations: React.FC = () => {
   const [xeroMessage, setXeroMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    setHmrcStatus(null);
+    setXeroStatus(null);
     fetchStatus();
-  }, []);
+  }, [activeFirmId]);
 
   const fetchStatus = async () => {
     setLoading(true);
@@ -173,7 +177,7 @@ export const Integrations: React.FC = () => {
               </button>
             )}
 
-            <button
+            {hmrcStatus?.hmrcAvailable !== false && <button
               onClick={toggleHmrc}
               disabled={connectingHmrc}
               className={`w-full py-2 rounded-lg text-xs font-semibold transition-colors shadow-xs flex items-center justify-center space-x-1.5 ${
@@ -190,7 +194,12 @@ export const Integrations: React.FC = () => {
               ) : (
                 <span>{hmrcStatus?.isConnected ? 'Disconnect HMRC' : 'Connect to HMRC'}</span>
               )}
-            </button>
+            </button>}
+            {hmrcStatus?.hmrcAvailable === false && (
+              <div className="text-[11px] text-slate-500 text-center border border-slate-200 rounded-lg py-2">
+                HMRC MTD is unavailable because this company is not VAT registered or has no valid VRN.
+              </div>
+            )}
           </div>
         </div>
 

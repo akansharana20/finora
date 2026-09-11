@@ -28,3 +28,21 @@ The integration logic is decoupled into 3 clear layers:
 When `INTEGRATION_MODE=mock`:
 - Returns standard test sandbox responses without failing when live credentials are absent.
 - Produces verifiable correlation receipts (`HMRC-SUB-...`).
+
+## 5. Company Scoping and OAuth State
+
+HMRC connections, obligations, and VAT returns are scoped by `firmId`. The active company is selected by the authenticated API request and authorized `x-firm-id` header; client-supplied IDs are not used to select HMRC data directly.
+
+HMRC OAuth state is a signed JWT containing the target `firmId` and a unique identifier. The identifier is stored in `HmrcOAuthState` with a 10-minute expiry and is atomically consumed during the callback, which rejects tampering, expiry, and replay. Set `HMRC_STATE_SECRET` to a stable production-only secret. If it is absent, the API falls back to `JWT_SECRET` for compatibility.
+
+The `HmrcOAuthState` table must be applied before deploying the HMRC connect flow:
+
+```text
+npx prisma db push --schema=apps/api/prisma/schema.prisma
+```
+
+## 6. Business Model Decision
+
+The current implementation supports direct-company authorization: each client company authorizes Finora to access its own HMRC VAT data. It does not implement HMRC agent authorization. The business decision remains whether AptechUK will continue with direct authorization (Option A) or later use HMRC agent APIs and an agent-specific authorization flow (Option B).
+
+HMRC Sandbox may limit which VRNs can be authorized and which obligations are returned. Finora does not fabricate obligations or submission receipts when Sandbox data is unavailable; use the configured HMRC Sandbox test credentials/VRN for end-to-end testing.
