@@ -24,3 +24,17 @@ Before deploying a new version:
 npx prisma db push
 ```
 or run migrations against Neon PostgreSQL.
+
+The HMRC OAuth flow persists single-use state in `hmrc_oauth_states`. Apply the
+tracked migration to the Production database before deploying the API:
+
+```bash
+npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+```
+
+The API must also have `HMRC_CLIENT_ID`, `HMRC_CLIENT_SECRET`,
+`HMRC_REDIRECT_URI`, `JWT_SECRET`, and `HMRC_ENCRYPTION_KEY` configured in the
+Production environment. `HMRC_CLIENT_SECRET` and `HMRC_ENCRYPTION_KEY` are
+used after the authorization redirect, while the connect URL requires the
+client ID, redirect URI, state secret (`HMRC_STATE_SECRET` or `JWT_SECRET`),
+and the OAuth state table.

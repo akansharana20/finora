@@ -24,14 +24,17 @@ export class XeroClient {
   private isMockMode: boolean;
 
   constructor() {
-    this.isMockMode = process.env.INTEGRATION_MODE === 'mock' || !process.env.XERO_CLIENT_ID;
+    this.isMockMode = process.env.INTEGRATION_MODE === 'mock';
   }
 
   getAuthorizationUrl(state: string): string {
     if (this.isMockMode) {
       return `${process.env.XERO_REDIRECT_URI || 'http://localhost:4000/api/xero/callback'}?code=mock_xero_code&state=${state}`;
     }
-    const redirectUri = encodeURIComponent(process.env.XERO_REDIRECT_URI || '');
+    if (!process.env.XERO_CLIENT_ID) {
+      throw new Error('Xero OAuth Client ID is missing. Configure XERO_CLIENT_ID on the API server.');
+    }
+    const redirectUri = encodeURIComponent(process.env.XERO_REDIRECT_URI || 'http://localhost:4000/api/xero/callback');
     return `https://login.xero.com/identity/connect/authorize?response_type=code&client_id=${process.env.XERO_CLIENT_ID}&redirect_uri=${redirectUri}&scope=accounting.transactions%20accounting.contacts.read&state=${state}`;
   }
 

@@ -17,10 +17,16 @@ function getApiBaseUrl(): string {
     }
     return `${trimmed}/api`;
   }
-  // In production deployments (e.g. Vercel), default to the production API URL rather than localhost
-  if (import.meta.env.PROD || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')) {
-    return 'https://finora-api.vercel.app/api';
+
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:4000/api';
+    }
+
+    return `${window.location.origin}/api`;
   }
+
   return 'http://localhost:4000/api';
 }
 

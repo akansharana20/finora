@@ -165,7 +165,7 @@ export class AuthService {
     let activeFirm = user.firm;
 
     if (activeFirmId && activeFirmId !== user.firmId) {
-      const { isUserAuthorizedForFirm } = await import('../../middleware/auth');
+      const { isUserAuthorizedForFirm } = await import('../../middleware/auth.js');
       const authorized = await isUserAuthorizedForFirm(user.id, user.firmId, activeFirmId);
       if (authorized) {
         const found = await prisma.firm.findUnique({

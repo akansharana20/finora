@@ -14,11 +14,11 @@
     "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/web",
     "lint": "npm run lint --workspace=apps/api && npm run lint --workspace=apps/web",
     "test": "npm run test --workspace=apps/api && npm run test --workspace=apps/web",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma db push",
+    "db:generate": "prisma generate --schema=apps/api/prisma/schema.prisma",
+    "db:push": "prisma db push --schema=apps/api/prisma/schema.prisma",
+    "db:migrate": "prisma db push --schema=apps/api/prisma/schema.prisma",
     "db:seed": "tsx prisma/seed.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate --schema=apps/api/prisma/schema.prisma"
   },
   "repository": {
     "type": "git",
