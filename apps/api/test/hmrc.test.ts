@@ -103,20 +103,71 @@ async function runTests() {
   assert.strictEqual(caughtError.statusCode, 400, 'Error should be a BadRequestError (400)');
   console.log('✅ Passed Test 5: Sandbox mode throws BadRequestError when client ID is missing.\n');
 
-  // Test 6: Sandbox mode with client ID points to HMRC test-api sandbox
-  console.log('Test 6: HMRC Client Sandbox Mode - Real Sandbox OAuth URL Generation');
+  // Test 6: Sandbox authorization uses the user-restricted authorization host
+  console.log('Test 6: HMRC Client Sandbox Authorization URL Generation');
   process.env.INTEGRATION_MODE = 'sandbox';
   process.env.HMRC_CLIENT_ID = 'test_sandbox_client_id_456';
+  process.env.HMRC_CLIENT_SECRET = 'test_sandbox_client_secret_789';
+  process.env.HMRC_REDIRECT_URI = 'https://finora.example/api/hmrc/callback';
   process.env.HMRC_BASE_URL = 'https://test-api.service.hmrc.gov.uk';
+  process.env.HMRC_AUTH_BASE_URL = 'https://test-www.tax.service.gov.uk';
   const configuredSandboxClient = new HmrcClient();
   const sandboxAuthUrl = configuredSandboxClient.getAuthorizationUrl('state_sandbox_123');
-  assert.ok(sandboxAuthUrl.startsWith('https://test-api.service.hmrc.gov.uk/oauth/authorize'), 'Auth URL must target HMRC test-api sandbox endpoint');
+  assert.ok(sandboxAuthUrl.startsWith('https://test-www.tax.service.gov.uk/oauth/authorize'), 'Auth URL must target HMRC user-restricted sandbox endpoint');
   assert.ok(sandboxAuthUrl.includes('client_id=test_sandbox_client_id_456'), 'Auth URL must include client_id');
   assert.ok(sandboxAuthUrl.includes('state=state_sandbox_123'), 'Auth URL must include state');
-  console.log('✅ Passed Test 6: Sandbox OAuth URL correctly points to HMRC test-api sandbox.\n');
+  assert.ok(!sandboxAuthUrl.includes('test_sandbox_client_secret_789'), 'Auth URL must not include client secret');
+  console.log('✅ Passed Test 6: Sandbox OAuth URL correctly uses the separate authorization host.\n');
 
-  // Test 7: Failed HMRC submission must NOT fabricate success
-  console.log('Test 7: Failed HMRC Submission - No Fabricated Success');
+  // Test 7: Token exchange uses the API host and exact form body
+  console.log('Test 7: HMRC Token Exchange Request Shape');
+  const originalFetch = globalThis.fetch;
+  let capturedTokenUrl = '';
+  let capturedTokenInit: RequestInit | undefined;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    capturedTokenUrl = String(input);
+    capturedTokenInit = init;
+    return new Response(JSON.stringify({
+      access_token: 'test_access_token',
+      refresh_token: 'test_refresh_token',
+      expires_in: 14400,
+      scope: 'read:vat write:vat',
+      token_type: 'Bearer',
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }) as typeof fetch;
+  try {
+    const tokenResponse = await configuredSandboxClient.exchangeCodeForTokens('test_authorization_code');
+    assert.strictEqual(tokenResponse.token_type, 'Bearer');
+    assert.strictEqual(capturedTokenUrl, 'https://test-api.service.hmrc.gov.uk/oauth/token');
+    assert.strictEqual(capturedTokenInit?.method, 'POST');
+    assert.strictEqual(capturedTokenInit?.headers && (capturedTokenInit.headers as Record<string, string>)['Content-Type'], 'application/x-www-form-urlencoded');
+    assert.strictEqual((capturedTokenInit?.headers as Record<string, string>)['Authorization'], undefined, 'Token request must not add Basic Authorization');
+
+    const body = new URLSearchParams(String(capturedTokenInit?.body));
+    assert.deepStrictEqual([...body.keys()].sort(), ['client_id', 'client_secret', 'code', 'grant_type', 'redirect_uri']);
+    assert.strictEqual(body.get('client_id'), 'test_sandbox_client_id_456');
+    assert.strictEqual(body.get('client_secret'), 'test_sandbox_client_secret_789');
+    assert.strictEqual(body.get('grant_type'), 'authorization_code');
+    assert.strictEqual(body.get('redirect_uri'), 'https://finora.example/api/hmrc/callback');
+    assert.strictEqual(body.get('code'), 'test_authorization_code');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  console.log('✅ Passed Test 7: Token exchange request format and endpoint verified.\n');
+
+  // Test 8: Environment values are read when the client is used
+  console.log('Test 8: HMRC Client Runtime Configuration Refresh');
+  const runtimeClient = new HmrcClient();
+  process.env.HMRC_CLIENT_ID = 'runtime_client_id_999';
+  process.env.HMRC_CLIENT_SECRET = 'runtime_client_secret_888';
+  process.env.HMRC_AUTH_BASE_URL = 'https://runtime-auth.example';
+  const runtimeAuthUrl = runtimeClient.getAuthorizationUrl('runtime_state');
+  assert.ok(runtimeAuthUrl.startsWith('https://runtime-auth.example/oauth/authorize'));
+  assert.ok(runtimeAuthUrl.includes('client_id=runtime_client_id_999'));
+  console.log('✅ Passed Test 8: HMRC client reads current environment values at use time.\n');
+
+  // Test 9: Failed HMRC submission must NOT fabricate success
+  console.log('Test 9: Failed HMRC Submission - No Fabricated Success');
   process.env.INTEGRATION_MODE = 'sandbox';
   process.env.HMRC_CLIENT_ID = 'test_client';
   // Test that when submitVatReturn receives a non-200 response in sandbox mode,
@@ -168,8 +219,8 @@ async function runTests() {
   );
   console.log('✅ Passed Test 7: Failed sandbox submission correctly propagates error without fabrication.\n');
 
-  // Test 8: Encryption with empty string returns empty string safely
-  console.log('Test 8: Crypto Edge Cases');
+  // Test 10: Encryption with empty string returns empty string safely
+  console.log('Test 10: Crypto Edge Cases');
   const encryptedEmpty = encryptToken('');
   // Empty string should pass through (returns empty)
   assert.strictEqual(encryptedEmpty, '', 'Encrypting empty string should return empty string');
@@ -187,8 +238,8 @@ async function runTests() {
   assert.ok(typeof decryptedMalformed === 'string', 'Malformed encrypted value should return string (graceful fallback)');
   console.log('✅ Passed Test 8: Crypto edge cases handled correctly.\n');
 
-  // Test 9: Integer truncation verification for VAT box 6-9 payload
-  console.log('Test 9: VAT Box Integer Sanitation Verification');
+  // Test 11: Integer truncation verification for VAT box 6-9 payload
+  console.log('Test 11: VAT Box Integer Sanitation Verification');
   // In mock mode, verify the mock submission returns the expected structure
   process.env.INTEGRATION_MODE = 'mock';
   const mockClientForSanitation = new HmrcClient();
@@ -211,8 +262,8 @@ async function runTests() {
   assert.strictEqual(sanitationReceipt.paymentIndicator, 'DD');
   console.log('✅ Passed Test 9: Integer box sanitation and submission receipt verified.\n');
 
-  // Test 10: Fraud headers include all 10 required HMRC fields
-  console.log('Test 10: All 10 Required HMRC Fraud Prevention Headers Present');
+  // Test 12: Fraud headers include all 10 required HMRC fields
+  console.log('Test 12: All 10 Required HMRC Fraud Prevention Headers Present');
   const allHeaders = buildHmrcFraudHeaders(undefined);
   const requiredHeaders = [
     'Gov-Client-Connection-Method',
@@ -235,8 +286,8 @@ async function runTests() {
   }
   console.log('✅ Passed Test 10: All required HMRC fraud prevention headers are present.\n');
 
-  // Test 11: OAuth state is signed, expiring, and single-use
-  console.log('Test 11: HMRC OAuth State Integrity and Replay Protection');
+  // Test 13: OAuth state is signed, expiring, and single-use
+  console.log('Test 13: HMRC OAuth State Integrity and Replay Protection');
   const stateSecret = process.env.HMRC_STATE_SECRET || process.env.JWT_SECRET || 'finora-dev-hmrc-state-secret-change-in-production';
   const originalOAuthStateUpdateMany = (prisma as any).hmrcOAuthState.updateMany;
   (prisma as any).hmrcOAuthState.updateMany = async () => ({ count: 1 });
@@ -274,8 +325,8 @@ async function runTests() {
   }
   console.log('✅ Passed Test 11: HMRC OAuth state cannot be tampered with, expired, or replayed.\n');
 
-  // Test 12: HMRC status is resolved from the requested firm only
-  console.log('Test 12: HMRC Status Company Isolation');
+  // Test 14: HMRC status is resolved from the requested firm only
+  console.log('Test 14: HMRC Status Company Isolation');
   const originalConnectionFindUnique = (prisma as any).hmrcConnection.findUnique;
   const originalFirmFindUnique = (prisma as any).firm.findUnique;
   (prisma as any).hmrcConnection.findUnique = async (query: any) => query.where.firmId === 'firm-a'

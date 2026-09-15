@@ -78,6 +78,7 @@ HMRC_CLIENT_ID="your_hmrc_client_id"
 HMRC_CLIENT_SECRET="your_hmrc_client_secret"
 HMRC_REDIRECT_URI="http://localhost:4000/api/hmrc/callback"
 HMRC_BASE_URL="https://test-api.service.hmrc.gov.uk"
+HMRC_AUTH_BASE_URL="https://test-www.tax.service.gov.uk"
 HMRC_ENVIRONMENT="sandbox"
 HMRC_ENCRYPTION_KEY="32_byte_secret_key_for_encrypting_tokens"
 

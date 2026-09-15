@@ -1,4 +1,5 @@
 import { BadRequestError } from '../../utils/errors';
+import { createHash } from 'crypto';
 
 export interface HmrcObligationResponse {
   start: string;
@@ -40,40 +41,41 @@ export interface HmrcSubmissionReceipt {
 }
 
 export class HmrcClient {
-  private baseUrl: string;
-  private clientId: string;
-  private clientSecret: string;
-  private redirectUri: string;
-  private isMockMode: boolean;
+  private static readonly defaultRedirectUri = 'http://localhost:4000/api/hmrc/callback';
 
-  constructor() {
-    this.baseUrl = (process.env.HMRC_BASE_URL || 'https://test-api.service.hmrc.gov.uk').replace(/\/+$/, '');
-    this.clientId = process.env.HMRC_CLIENT_ID || '';
-    this.clientSecret = process.env.HMRC_CLIENT_SECRET || '';
-    this.redirectUri = process.env.HMRC_REDIRECT_URI || 'http://localhost:4000/api/hmrc/callback';
-
-    const mode = (process.env.INTEGRATION_MODE || '').toLowerCase();
-    this.isMockMode = mode === 'mock';
+  private getConfig() {
+    const trimTrailingSlashes = (value: string) => value.replace(/\/+$/, '');
+    return {
+      baseUrl: trimTrailingSlashes((process.env.HMRC_BASE_URL || 'https://test-api.service.hmrc.gov.uk').trim()),
+      authBaseUrl: trimTrailingSlashes((process.env.HMRC_AUTH_BASE_URL || 'https://test-www.tax.service.gov.uk').trim()),
+      clientId: (process.env.HMRC_CLIENT_ID || '').trim(),
+      clientSecret: (process.env.HMRC_CLIENT_SECRET || '').trim(),
+      redirectUri: (process.env.HMRC_REDIRECT_URI || HmrcClient.defaultRedirectUri).trim(),
+      environment: (process.env.HMRC_ENVIRONMENT || process.env.INTEGRATION_MODE || 'sandbox').trim(),
+      isMockMode: (process.env.INTEGRATION_MODE || '').toLowerCase() === 'mock',
+    };
   }
 
   getAuthorizationUrl(state: string): string {
-    if (this.isMockMode) {
-      const callback = process.env.HMRC_REDIRECT_URI || 'http://localhost:4000/api/hmrc/callback';
+    const config = this.getConfig();
+    if (config.isMockMode) {
+      const callback = config.redirectUri;
       const delimiter = callback.includes('?') ? '&' : '?';
       return `${callback}${delimiter}code=mock_authorization_code&state=${state}`;
     }
 
-    if (!this.clientId) {
+    if (!config.clientId) {
       throw new BadRequestError('HMRC OAuth Client ID is missing. Please configure HMRC_CLIENT_ID on the API server.');
     }
 
-    const redirectUri = encodeURIComponent(this.redirectUri);
+    const redirectUri = encodeURIComponent(config.redirectUri);
     const scope = encodeURIComponent('read:vat write:vat');
-    return `${this.baseUrl}/oauth/authorize?response_type=code&client_id=${encodeURIComponent(this.clientId)}&scope=${scope}&redirect_uri=${redirectUri}&state=${encodeURIComponent(state)}`;
+    return `${config.authBaseUrl}/oauth/authorize?response_type=code&client_id=${encodeURIComponent(config.clientId)}&scope=${scope}&redirect_uri=${redirectUri}&state=${encodeURIComponent(state)}`;
   }
 
   async exchangeCodeForTokens(code: string): Promise<HmrcTokenResponse> {
-    if (this.isMockMode || code.startsWith('mock_')) {
+    const config = this.getConfig();
+    if (config.isMockMode || code.startsWith('mock_')) {
       return {
         access_token: `mock_hmrc_access_token_${Date.now()}`,
         refresh_token: `mock_hmrc_refresh_token_${Date.now()}`,
@@ -83,13 +85,27 @@ export class HmrcClient {
       };
     }
 
-    const tokenUrl = `${this.baseUrl}/oauth/token`;
+    const tokenUrl = `${config.baseUrl}/oauth/token`;
     const bodyParams = new URLSearchParams({
-      client_id: this.clientId,
-      client_secret: this.clientSecret,
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
       grant_type: 'authorization_code',
-      redirect_uri: this.redirectUri,
+      redirect_uri: config.redirectUri,
       code,
+    });
+
+    console.info('[TEMPORARY DIAGNOSTIC] HMRC OAuth token exchange configuration', {
+      hmrcEnvironment: config.environment,
+      tokenEndpoint: tokenUrl,
+      redirectUri: config.redirectUri,
+      clientIdFingerprint: config.clientId.length >= 8
+        ? `${config.clientId.slice(0, 4)}...${config.clientId.slice(-4)}`
+        : '[too-short-to-mask]',
+      clientIdLength: config.clientId.length,
+      clientSecretFingerprint: createHash('sha256').update(config.clientSecret).digest('hex'),
+      clientSecretLength: config.clientSecret.length,
+      hasClientSecret: config.clientSecret.length > 0,
+      hasClientId: config.clientId.length > 0,
     });
 
     const res = await fetch(tokenUrl, {
@@ -118,7 +134,8 @@ export class HmrcClient {
   }
 
   async refreshAccessToken(refreshToken: string): Promise<HmrcTokenResponse> {
-    if (this.isMockMode || refreshToken.startsWith('mock_')) {
+    const config = this.getConfig();
+    if (config.isMockMode || refreshToken.startsWith('mock_')) {
       return {
         access_token: `mock_hmrc_refreshed_token_${Date.now()}`,
         refresh_token: `mock_hmrc_refresh_token_${Date.now()}`,
@@ -128,10 +145,10 @@ export class HmrcClient {
       };
     }
 
-    const tokenUrl = `${this.baseUrl}/oauth/token`;
+    const tokenUrl = `${config.baseUrl}/oauth/token`;
     const bodyParams = new URLSearchParams({
-      client_id: this.clientId,
-      client_secret: this.clientSecret,
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
     });
@@ -171,7 +188,8 @@ export class HmrcClient {
       fraudHeaders?: Record<string, string>;
     }
   ): Promise<HmrcObligationResponse[]> {
-    if (this.isMockMode || !accessToken || accessToken.startsWith('mock_')) {
+    const config = this.getConfig();
+    if (config.isMockMode || !accessToken || accessToken.startsWith('mock_')) {
       return [
         { start: '2025-10-01', end: '2025-12-31', due: '2026-02-07', status: 'F', periodKey: '25C4', received: '2026-02-01' },
         { start: '2026-01-01', end: '2026-03-31', due: '2026-05-07', status: 'F', periodKey: '26C1', received: '2026-04-28' },
@@ -187,7 +205,7 @@ export class HmrcClient {
     if (options?.status) query.set('status', options.status);
 
     const qs = query.toString();
-    const url = `${this.baseUrl}/organisations/vat/${cleanVrn}/obligations${qs ? `?${qs}` : ''}`;
+    const url = `${config.baseUrl}/organisations/vat/${cleanVrn}/obligations${qs ? `?${qs}` : ''}`;
 
     const headers: Record<string, string> = {
       'Accept': 'application/vnd.hmrc.1.0+json',
@@ -222,7 +240,8 @@ export class HmrcClient {
     accessToken?: string,
     fraudHeaders?: Record<string, string>
   ): Promise<HmrcSubmissionReceipt> {
-    if (this.isMockMode || !accessToken || accessToken.startsWith('mock_')) {
+    const config = this.getConfig();
+    if (config.isMockMode || !accessToken || accessToken.startsWith('mock_')) {
       const correlationId = `HMRC-SUB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       const formBundleNumber = `${Math.floor(100000000000 + Math.random() * 900000000000)}`;
       return {
@@ -235,7 +254,7 @@ export class HmrcClient {
     }
 
     const cleanVrn = vrn.replace(/[^0-9]/g, '');
-    const url = `${this.baseUrl}/organisations/vat/${cleanVrn}/returns`;
+    const url = `${config.baseUrl}/organisations/vat/${cleanVrn}/returns`;
 
     // Ensure integers for boxes 6, 7, 8, 9 as required by HMRC specification
     const sanitizedPayload = {
