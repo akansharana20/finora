@@ -37,6 +37,10 @@ function getErrorCode(statusCode: number): string {
     case 404: return 'NOT_FOUND';
     case 409: return 'CONFLICT';
     case 422: return 'UNPROCESSABLE_ENTITY';
+    case 429: return 'TOO_MANY_REQUESTS';
+    case 502: return 'BAD_GATEWAY';
+    case 503: return 'SERVICE_UNAVAILABLE';
+    case 504: return 'GATEWAY_TIMEOUT';
     default: return 'INTERNAL_SERVER_ERROR';
   }
 }

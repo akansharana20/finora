@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { Landmark, Share2, CreditCard, RefreshCw, CheckCircle2, AlertCircle, Shield, ExternalLink } from 'lucide-react';
 
 export const Integrations: React.FC = () => {
   const { activeFirmId } = useAuth();
+  const [searchParams] = useSearchParams();
   const [hmrcStatus, setHmrcStatus] = useState<any>(null);
-  const [hmrcError, setHmrcError] = useState<string | null>(null);
   const [connectingHmrc, setConnectingHmrc] = useState(false);
   const [xeroStatus, setXeroStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [syncingHmrc, setSyncingHmrc] = useState(false);
-  const [hmrcMessage, setHmrcMessage] = useState<string | null>(null);
+  const [hmrcSuccessMessage, setHmrcSuccessMessage] = useState<string | null>(null);
+  const [hmrcErrorMessage, setHmrcErrorMessage] = useState<string | null>(null);
   const [syncingXero, setSyncingXero] = useState(false);
   const [xeroMessage, setXeroMessage] = useState<string | null>(null);
 
@@ -21,9 +23,35 @@ export const Integrations: React.FC = () => {
     fetchStatus();
   }, [activeFirmId]);
 
+  // Handle incoming OAuth callback query parameters from HMRC redirect
+  useEffect(() => {
+    const hmrcParam = searchParams.get('hmrc');
+    const hmrcErrParam = searchParams.get('hmrc_error');
+
+    if (hmrcParam === 'connected') {
+      setHmrcSuccessMessage('Successfully connected to HMRC Making Tax Digital VAT!');
+      setHmrcErrorMessage(null);
+      fetchStatus();
+      if (typeof window !== 'undefined' && window.history?.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } else if (hmrcErrParam) {
+      const decoded = decodeURIComponent(hmrcErrParam);
+      let readableError = decoded;
+      if (decoded === 'missing_firm_context') readableError = 'Unable to identify company context for HMRC connection.';
+      else if (decoded === 'missing_code') readableError = 'HMRC did not return an authorization code.';
+      else if (decoded === 'access_denied') readableError = 'HMRC authorization was cancelled or denied.';
+      setHmrcErrorMessage(`HMRC connection error: ${readableError}`);
+      setHmrcSuccessMessage(null);
+      fetchStatus();
+      if (typeof window !== 'undefined' && window.history?.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, [searchParams]);
+
   const fetchStatus = async () => {
     setLoading(true);
-    setHmrcError(null);
     const [hmrcRes, xeroRes] = await Promise.all([
       apiFetch('/hmrc/status'),
       apiFetch('/xero/status'),
@@ -31,10 +59,9 @@ export const Integrations: React.FC = () => {
 
     if (hmrcRes.success) {
       setHmrcStatus(hmrcRes.data);
-      setHmrcError(null);
     } else {
       setHmrcStatus(null);
-      setHmrcError(hmrcRes.error?.message || 'Failed to fetch HMRC connection status');
+      setHmrcErrorMessage(hmrcRes.error?.message || 'Failed to fetch HMRC connection status');
     }
 
     if (xeroRes.success) setXeroStatus(xeroRes.data);
@@ -42,18 +69,18 @@ export const Integrations: React.FC = () => {
   };
 
   const toggleHmrc = async () => {
-    setHmrcError(null);
-    setHmrcMessage(null);
+    setHmrcErrorMessage(null);
+    setHmrcSuccessMessage(null);
 
     if (hmrcStatus?.isConnected) {
       setConnectingHmrc(true);
       const res = await apiFetch('/hmrc/disconnect', { method: 'POST' });
       setConnectingHmrc(false);
       if (res.success) {
-        setHmrcMessage('Disconnected from HMRC.');
+        setHmrcSuccessMessage('Disconnected from HMRC successfully.');
         fetchStatus();
       } else {
-        setHmrcError(res.error?.message || 'Failed to disconnect from HMRC.');
+        setHmrcErrorMessage(res.error?.message || 'Failed to disconnect from HMRC.');
       }
     } else {
       setConnectingHmrc(true);
@@ -62,27 +89,29 @@ export const Integrations: React.FC = () => {
       if (res.success && res.data?.url) {
         const url = res.data.url;
         if (url.startsWith('#') || url.includes('demo-connected')) {
-          setHmrcError('Backend returned a demo fallback URL (#demo-connected) instead of an HMRC sandbox OAuth redirect.');
+          setHmrcErrorMessage('Backend returned a demo fallback URL (#demo-connected) instead of an HMRC sandbox OAuth redirect.');
           return;
         }
         window.location.href = url;
         return;
       } else {
-        setHmrcError(res.error?.message || 'Failed to initialize HMRC connection. Please verify server configuration.');
+        setHmrcErrorMessage(res.error?.message || 'Failed to initialize HMRC connection. Please verify server configuration.');
       }
     }
   };
 
   const handleSyncHmrc = async () => {
     setSyncingHmrc(true);
-    setHmrcMessage(null);
+    setHmrcSuccessMessage(null);
+    setHmrcErrorMessage(null);
     const res = await apiFetch('/hmrc/obligations/sync', { method: 'POST' });
     setSyncingHmrc(false);
     if (res.success) {
-      setHmrcMessage(`Successfully synchronized obligations from HMRC MTD.`);
+      const count = Array.isArray(res.data) ? ` (${res.data.length} obligations recorded)` : '';
+      setHmrcSuccessMessage(`Successfully synchronized obligations from HMRC MTD${count}.`);
       fetchStatus();
     } else {
-      setHmrcMessage(res.error?.message || 'Failed to sync obligations from HMRC.');
+      setHmrcErrorMessage(res.error?.message || 'Failed to sync obligations from HMRC.');
     }
   };
 
@@ -151,16 +180,24 @@ export const Integrations: React.FC = () => {
               )}
             </div>
 
-            {hmrcMessage && (
-              <div className="mt-2 p-2 bg-emerald-50 text-emerald-800 text-[11px] rounded font-medium">
-                {hmrcMessage}
+            {hmrcSuccessMessage && (
+              <div className="mt-2.5 p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] rounded-lg font-medium flex items-start space-x-1.5">
+                <CheckCircle2 size={14} className="shrink-0 mt-0.5 text-emerald-600" />
+                <span className="leading-snug">{hmrcSuccessMessage}</span>
               </div>
             )}
 
-            {hmrcError && (
-              <div className="mt-2 p-2.5 bg-red-50 border border-red-200 text-red-700 text-[11px] rounded font-medium flex items-start space-x-1.5">
+            {hmrcErrorMessage && (
+              <div className="mt-2.5 p-2.5 bg-red-50 border border-red-200 text-red-700 text-[11px] rounded-lg font-medium flex items-start space-x-1.5">
                 <AlertCircle size={14} className="shrink-0 mt-0.5 text-red-600" />
-                <span className="leading-snug">{hmrcError}</span>
+                <span className="leading-snug">{hmrcErrorMessage}</span>
+              </div>
+            )}
+
+            {hmrcStatus?.reauthRequired && !hmrcErrorMessage && (
+              <div className="mt-2.5 p-2.5 bg-amber-50 border border-amber-200 text-amber-800 text-[11px] rounded-lg font-medium flex items-start space-x-1.5">
+                <AlertCircle size={14} className="shrink-0 mt-0.5 text-amber-600" />
+                <span className="leading-snug">HMRC authorization has expired. Please click &ldquo;Connect to HMRC&rdquo; to re-authorize.</span>
               </div>
             )}
           </div>

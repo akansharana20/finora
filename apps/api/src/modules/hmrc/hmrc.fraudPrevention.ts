@@ -64,13 +64,17 @@ export function buildHmrcFraudHeaders(req?: Request, customData?: FraudPreventio
     if (publicIp.startsWith('::ffff:')) {
       publicIp = publicIp.substring(7);
     }
-    if (!publicIp || publicIp === '::1' || publicIp === '127.0.0.1') {
-      publicIp = customData?.publicIp || '82.165.197.1'; // Representative UK client public IP fallback for local sandbox testing
+    const isLoopback = !publicIp || publicIp === '::1' || publicIp === '127.0.0.1';
+    if (isLoopback) {
+      // HMRC MTD API strictly rejects RFC 1918 / loopback IPs.
+      // In sandbox/local dev, use the representative UK client public IP mandated by HMRC sandbox guidelines.
+      publicIp = customData?.publicIp || '82.165.197.1';
     }
     headers['Gov-Client-Public-IP'] = publicIp;
 
     // 7. Public Port
-    const publicPort = (req.headers['x-client-public-port'] as string) || (req.socket?.remotePort ? String(req.socket.remotePort) : '') || customData?.publicPort || '54321';
+    const forwardedPort = (req.headers['x-forwarded-port'] as string) || (req.headers['x-client-public-port'] as string);
+    const publicPort = forwardedPort || (req.socket?.remotePort ? String(req.socket.remotePort) : '') || customData?.publicPort || '54321';
     headers['Gov-Client-Public-Port'] = publicPort;
 
     // 8. Screens

@@ -1,5 +1,5 @@
 import { BadRequestError } from '../../utils/errors';
-import { createHash } from 'crypto';
+import { HmrcApiError } from './hmrc.error';
 
 export interface HmrcObligationResponse {
   start: string;
@@ -94,39 +94,30 @@ export class HmrcClient {
       code,
     });
 
-    console.info('[TEMPORARY DIAGNOSTIC] HMRC OAuth token exchange configuration', {
-      hmrcEnvironment: config.environment,
-      tokenEndpoint: tokenUrl,
+    console.info('[HMRC] Exchanging authorization code for tokens', {
+      operation: 'exchangeCodeForTokens',
+      environment: config.environment,
       redirectUri: config.redirectUri,
-      clientIdFingerprint: config.clientId.length >= 8
-        ? `${config.clientId.slice(0, 4)}...${config.clientId.slice(-4)}`
-        : '[too-short-to-mask]',
-      clientIdLength: config.clientId.length,
-      clientSecretFingerprint: createHash('sha256').update(config.clientSecret).digest('hex'),
-      clientSecretLength: config.clientSecret.length,
-      hasClientSecret: config.clientSecret.length > 0,
-      hasClientId: config.clientId.length > 0,
     });
 
-    const res = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json',
-      },
-      body: bodyParams.toString(),
-    });
+    let res: Response;
+    try {
+      res = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+        },
+        body: bodyParams.toString(),
+      });
+    } catch (networkErr: any) {
+      throw HmrcApiError.networkError('exchangeCodeForTokens', networkErr);
+    }
 
     if (!res.ok) {
       const errorText = await res.text();
-      let parsedError = errorText;
-      try {
-        const json = JSON.parse(errorText);
-        parsedError = json.error_description || json.error || json.message || errorText;
-      } catch (e) {
-        // Keep raw text
-      }
-      throw new Error(`HMRC OAuth token exchange failed (${res.status}): ${parsedError}`);
+      const correlationId = res.headers.get('x-correlation-id') || res.headers.get('correlationId') || undefined;
+      throw HmrcApiError.fromHmrcResponse(res.status, errorText, 'exchangeCodeForTokens', correlationId);
     }
 
     const data = (await res.json()) as HmrcTokenResponse;
@@ -153,25 +144,29 @@ export class HmrcClient {
       refresh_token: refreshToken,
     });
 
-    const res = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json',
-      },
-      body: bodyParams.toString(),
+    console.info('[HMRC] Refreshing OAuth access token', {
+      operation: 'refreshAccessToken',
+      environment: config.environment,
     });
+
+    let res: Response;
+    try {
+      res = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+        },
+        body: bodyParams.toString(),
+      });
+    } catch (networkErr: any) {
+      throw HmrcApiError.networkError('refreshAccessToken', networkErr);
+    }
 
     if (!res.ok) {
       const errorText = await res.text();
-      let parsedError = errorText;
-      try {
-        const json = JSON.parse(errorText);
-        parsedError = json.error_description || json.error || json.message || errorText;
-      } catch (e) {
-        // Keep raw text
-      }
-      throw new Error(`HMRC token refresh failed (${res.status}): ${parsedError}`);
+      const correlationId = res.headers.get('x-correlation-id') || res.headers.get('correlationId') || undefined;
+      throw HmrcApiError.fromHmrcResponse(res.status, errorText, 'refreshAccessToken', correlationId);
     }
 
     const data = (await res.json()) as HmrcTokenResponse;
@@ -189,13 +184,21 @@ export class HmrcClient {
     }
   ): Promise<HmrcObligationResponse[]> {
     const config = this.getConfig();
-    if (config.isMockMode || !accessToken || accessToken.startsWith('mock_')) {
+    if (config.isMockMode || (accessToken && accessToken.startsWith('mock_'))) {
       return [
         { start: '2025-10-01', end: '2025-12-31', due: '2026-02-07', status: 'F', periodKey: '25C4', received: '2026-02-01' },
         { start: '2026-01-01', end: '2026-03-31', due: '2026-05-07', status: 'F', periodKey: '26C1', received: '2026-04-28' },
         { start: '2026-04-01', end: '2026-06-30', due: '2026-08-07', status: 'O', periodKey: '26C2' },
         { start: '2026-07-01', end: '2026-09-30', due: '2026-11-07', status: 'O', periodKey: '26C3' },
       ];
+    }
+
+    if (!accessToken) {
+      throw new HmrcApiError({
+        message: 'HMRC authorization has expired. Please reconnect this company to HMRC.',
+        statusCode: 401,
+        operation: 'getVatObligations',
+      });
     }
 
     const cleanVrn = vrn.replace(/[^0-9]/g, '');
@@ -213,21 +216,23 @@ export class HmrcClient {
       ...(options?.fraudHeaders || {}),
     };
 
-    const res = await fetch(url, {
-      method: 'GET',
-      headers,
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: 'GET',
+        headers,
+      });
+    } catch (networkErr: any) {
+      throw HmrcApiError.networkError('getVatObligations', networkErr);
+    }
+
+    const correlationId = res.headers.get('x-correlation-id') ||
+      res.headers.get('correlationId') ||
+      res.headers.get('x-request-id') || undefined;
 
     if (!res.ok) {
       const errorText = await res.text();
-      let parsedMsg = errorText;
-      try {
-        const json = JSON.parse(errorText);
-        parsedMsg = json.message || json.code || errorText;
-      } catch (e) {
-        // Keep raw text
-      }
-      throw new Error(`HMRC VAT obligations request failed (${res.status}): ${parsedMsg}`);
+      throw HmrcApiError.fromHmrcResponse(res.status, errorText, 'getVatObligations', correlationId);
     }
 
     const data = await res.json() as { obligations?: HmrcObligationResponse[] };
@@ -241,7 +246,7 @@ export class HmrcClient {
     fraudHeaders?: Record<string, string>
   ): Promise<HmrcSubmissionReceipt> {
     const config = this.getConfig();
-    if (config.isMockMode || !accessToken || accessToken.startsWith('mock_')) {
+    if (config.isMockMode || (accessToken && accessToken.startsWith('mock_'))) {
       const correlationId = `HMRC-SUB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       const formBundleNumber = `${Math.floor(100000000000 + Math.random() * 900000000000)}`;
       return {
@@ -251,6 +256,14 @@ export class HmrcClient {
         chargeRefNumber: `XD${Math.floor(100000000000 + Math.random() * 900000000000)}`,
         correlationId,
       };
+    }
+
+    if (!accessToken) {
+      throw new HmrcApiError({
+        message: 'HMRC authorization has expired. Please reconnect this company to HMRC.',
+        statusCode: 401,
+        operation: 'submitVatReturn',
+      });
     }
 
     const cleanVrn = vrn.replace(/[^0-9]/g, '');
@@ -278,11 +291,16 @@ export class HmrcClient {
       ...(fraudHeaders || {}),
     };
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(sanitizedPayload),
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(sanitizedPayload),
+      });
+    } catch (networkErr: any) {
+      throw HmrcApiError.networkError('submitVatReturn', networkErr);
+    }
 
     const correlationId = res.headers.get('x-correlation-id') ||
       res.headers.get('correlationId') ||
@@ -291,14 +309,7 @@ export class HmrcClient {
 
     if (!res.ok) {
       const errorText = await res.text();
-      let parsedMsg = errorText;
-      try {
-        const json = JSON.parse(errorText);
-        parsedMsg = json.message || json.code || errorText;
-      } catch (e) {
-        // Keep raw text
-      }
-      throw new Error(`HMRC VAT return submission failed (${res.status}): ${parsedMsg}`);
+      throw HmrcApiError.fromHmrcResponse(res.status, errorText, 'submitVatReturn', correlationId);
     }
 
     const result = (await res.json()) as {

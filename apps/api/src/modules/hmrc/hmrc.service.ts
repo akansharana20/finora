@@ -1,7 +1,8 @@
 import { Request } from 'express';
 import prisma from '../../config/db';
 import { NotFoundError, BadRequestError } from '../../utils/errors';
-import { HmrcClient, HmrcSubmissionReceipt } from './hmrc.client';
+import { HmrcClient, HmrcSubmissionReceipt, HmrcTokenResponse } from './hmrc.client';
+import { HmrcApiError } from './hmrc.error';
 import { buildHmrcFraudHeaders } from './hmrc.fraudPrevention';
 import { encryptToken, decryptToken } from '../../utils/crypto';
 import { VatReturnStatus, VatObligationStatus } from '@prisma/client';
@@ -88,6 +89,7 @@ export class HmrcService {
     const encryptedAccessToken = encryptToken(tokenResponse.access_token);
     const encryptedRefreshToken = encryptToken(tokenResponse.refresh_token);
 
+    // Note: OAuth connection is NOT synchronization. lastSyncAt is NOT set here.
     const connection = await prisma.hmrcConnection.upsert({
       where: { firmId },
       update: {
@@ -97,7 +99,6 @@ export class HmrcService {
         refreshToken: encryptedRefreshToken,
         expiresAt,
         scope: tokenResponse.scope || 'read:vat write:vat',
-        lastSyncAt: new Date(),
         environment: process.env.HMRC_ENVIRONMENT || 'sandbox',
       },
       create: {
@@ -108,7 +109,7 @@ export class HmrcService {
         refreshToken: encryptedRefreshToken,
         expiresAt,
         scope: tokenResponse.scope || 'read:vat write:vat',
-        lastSyncAt: new Date(),
+        lastSyncAt: null,
         environment: process.env.HMRC_ENVIRONMENT || 'sandbox',
       },
     });
@@ -132,22 +133,99 @@ export class HmrcService {
     };
   }
 
-  private static async getValidAccessToken(firmId: string): Promise<string | undefined> {
+  // In-process lock to prevent concurrent refresh requests from burning single-use HMRC refresh tokens
+  private static refreshLocks = new Map<string, Promise<string>>();
+
+  static async getValidAccessToken(firmId: string): Promise<string> {
+    // If a refresh is already in progress for this firm, await it
+    const existingLock = HmrcService.refreshLocks.get(firmId);
+    if (existingLock) {
+      return existingLock;
+    }
+
     const connection = await prisma.hmrcConnection.findUnique({
       where: { firmId },
     });
 
     if (!connection || !connection.isConnected || !connection.accessToken) {
-      return undefined;
+      throw new HmrcApiError({
+        message: 'HMRC authorization has expired or is missing. Please reconnect this company to HMRC.',
+        statusCode: 401,
+        operation: 'getValidAccessToken',
+      });
     }
 
-    // Check if token is expired or within 5 minutes of expiring
-    const isExpiringSoon = connection.expiresAt && connection.expiresAt.getTime() - Date.now() < 5 * 60 * 1000;
+    const now = Date.now();
+    const tokenExpiresAtMs = connection.expiresAt ? connection.expiresAt.getTime() : 0;
+    const isExpired = tokenExpiresAtMs <= now;
+    const isExpiringSoon = tokenExpiresAtMs - now < 5 * 60 * 1000;
 
-    if (isExpiringSoon && connection.refreshToken) {
+    // If token is valid and has more than 5 minutes remaining, return it immediately
+    if (!isExpiringSoon && !isExpired) {
+      return decryptToken(connection.accessToken);
+    }
+
+    // Check if another concurrent request already initiated a refresh for this firm
+    const activeLock = HmrcService.refreshLocks.get(firmId);
+    if (activeLock) {
+      return activeLock;
+    }
+
+    // Perform concurrency-safe refresh for expired or soon-expiring token
+    const refreshPromise = (async () => {
       try {
-        const plainRefreshToken = decryptToken(connection.refreshToken);
-        const refreshed = await HmrcService.client.refreshAccessToken(plainRefreshToken);
+        // Re-read fresh state from database in case another concurrent worker updated it
+        const freshConnection = await prisma.hmrcConnection.findUnique({
+          where: { firmId },
+        });
+
+        if (!freshConnection || !freshConnection.isConnected || !freshConnection.refreshToken) {
+          throw new HmrcApiError({
+            message: 'HMRC authorization has expired. Please reconnect this company to HMRC.',
+            statusCode: 401,
+            operation: 'getValidAccessToken',
+          });
+        }
+
+        const freshExpiresAtMs = freshConnection.expiresAt ? freshConnection.expiresAt.getTime() : 0;
+        const freshIsExpiringSoon = freshExpiresAtMs - Date.now() < 5 * 60 * 1000;
+
+        // If another request already refreshed the token in DB, return that token
+        if (!freshIsExpiringSoon && freshConnection.accessToken) {
+          return decryptToken(freshConnection.accessToken);
+        }
+
+        const plainRefreshToken = decryptToken(freshConnection.refreshToken);
+        let refreshed: HmrcTokenResponse;
+        try {
+          refreshed = await HmrcService.client.refreshAccessToken(plainRefreshToken);
+        } catch (refreshErr: any) {
+          console.error(`[HMRC] Token refresh failed for firm ${firmId}:`, refreshErr.message);
+
+          const isFatalAuthError =
+            (refreshErr instanceof HmrcApiError && (refreshErr.statusCode === 400 || refreshErr.statusCode === 401)) ||
+            (refreshErr?.message && (refreshErr.message.includes('invalid_grant') || refreshErr.message.includes('invalid_token')));
+
+          if (isExpired || isFatalAuthError) {
+            // Mark connection as requiring reauthorization
+            await prisma.hmrcConnection.update({
+              where: { firmId },
+              data: { isConnected: false },
+            });
+
+            throw new HmrcApiError({
+              message: 'HMRC authorization has expired. Please reconnect this company to HMRC.',
+              statusCode: 401,
+              operation: 'refreshAccessToken',
+              hmrcCode: refreshErr instanceof HmrcApiError ? refreshErr.hmrcCode : undefined,
+              correlationId: refreshErr instanceof HmrcApiError ? refreshErr.correlationId : undefined,
+            });
+          }
+
+          // If token has not yet expired (still within 5-min buffer) and error is transient network error,
+          // allow using existing unexpired token for remaining time
+          return decryptToken(freshConnection.accessToken!);
+        }
 
         const newExpiresAt = new Date(Date.now() + refreshed.expires_in * 1000);
         const newEncryptedAccess = encryptToken(refreshed.access_token);
@@ -159,17 +237,24 @@ export class HmrcService {
             accessToken: newEncryptedAccess,
             refreshToken: newEncryptedRefresh,
             expiresAt: newExpiresAt,
+            isConnected: true,
           },
         });
 
-        return refreshed.access_token;
-      } catch (err) {
-        console.error('Failed to refresh HMRC token automatically:', err);
-        // Fall back to current decrypted token if refresh fails
-      }
-    }
+        console.info('[HMRC] Successfully refreshed and persisted OAuth tokens', {
+          operation: 'refreshAccessToken',
+          firmId,
+          expiresAt: newExpiresAt.toISOString(),
+        });
 
-    return decryptToken(connection.accessToken);
+        return refreshed.access_token;
+      } finally {
+        HmrcService.refreshLocks.delete(firmId);
+      }
+    })();
+
+    HmrcService.refreshLocks.set(firmId, refreshPromise);
+    return refreshPromise;
   }
 
   static async getStatus(firmId: string) {
@@ -181,9 +266,13 @@ export class HmrcService {
     const isMock = mode === 'mock';
     const isConfigured = Boolean(process.env.HMRC_CLIENT_ID && process.env.HMRC_CLIENT_SECRET);
     const environment = mode === 'mock' ? 'mock' : (process.env.HMRC_ENVIRONMENT || (mode === 'production' ? 'production' : 'sandbox'));
+    const isExpired = Boolean(connection?.expiresAt && connection.expiresAt.getTime() <= Date.now() && connection?.isConnected);
+    const isConnected = Boolean(firm?.vatRegistered && connection?.isConnected && !isExpired);
 
     return {
-      isConnected: Boolean(firm?.vatRegistered && connection?.isConnected),
+      isConnected,
+      reauthRequired: Boolean(connection && (!connection.isConnected || isExpired)),
+      isExpired,
       vrn: connection?.vrn || normalizeVrn(firm?.vatNumber) || null,
       vatRegistered: firm?.vatRegistered || false,
       hmrcAvailable: Boolean(firm?.vatRegistered && normalizeVrn(firm.vatNumber).length === 9),

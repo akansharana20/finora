@@ -3,6 +3,9 @@ import { encryptToken, decryptToken } from '../src/utils/crypto';
 import { buildHmrcFraudHeaders } from '../src/modules/hmrc/hmrc.fraudPrevention';
 import { HmrcClient } from '../src/modules/hmrc/hmrc.client';
 import { HmrcService } from '../src/modules/hmrc/hmrc.service';
+import { HmrcApiError } from '../src/modules/hmrc/hmrc.error';
+import { HmrcController } from '../src/modules/hmrc/hmrc.controller';
+import { getValidatedFrontendUrl } from '../src/config/env';
 import prisma from '../src/config/db';
 import jwt from 'jsonwebtoken';
 
@@ -346,9 +349,346 @@ async function runTests() {
     (prisma as any).hmrcConnection.findUnique = originalConnectionFindUnique;
     (prisma as any).firm.findUnique = originalFirmFindUnique;
   }
-  console.log('✅ Passed Test 12: HMRC status never falls back to another company.\n');
+  console.log('✅ Passed Test 14: HMRC status never falls back to another company.\n');
 
-  console.log('🎉 All HMRC & Finora Integration Tests Passed Successfully!');
+  // Test 15: Structured HMRC Error Handling & Mapping
+  console.log('Test 15: Structured HMRC Error Handling (HmrcApiError)');
+  {
+    // 401
+    const err401 = HmrcApiError.fromHmrcResponse(401, '{"code":"UNAUTHORIZED"}', 'testOp', 'corr-1');
+    assert.strictEqual(err401.statusCode, 401);
+    assert.strictEqual(err401.message, 'HMRC authorization has expired. Please reconnect this company to HMRC.');
+    assert.strictEqual(err401.correlationId, 'corr-1');
+    assert.strictEqual(err401.operation, 'testOp');
+
+    // 403
+    const err403 = HmrcApiError.fromHmrcResponse(403, '{"code":"FORBIDDEN"}', 'testOp');
+    assert.strictEqual(err403.statusCode, 403);
+    assert.strictEqual(err403.message, 'HMRC has denied access for this company. Please check the HMRC authorization.');
+
+    // 400
+    const err400 = HmrcApiError.fromHmrcResponse(400, '{"code":"VRN_INVALID","message":"Invalid VRN supplied"}', 'testOp');
+    assert.strictEqual(err400.statusCode, 400);
+    assert.ok(err400.message.includes('HMRC rejected the request: Invalid VRN supplied'));
+
+    // 429
+    const err429 = HmrcApiError.fromHmrcResponse(429, 'Too many requests', 'testOp');
+    assert.strictEqual(err429.statusCode, 429);
+    assert.strictEqual(err429.message, 'HMRC is temporarily rate limiting requests. Please try again shortly.');
+
+    // 500 / 502 / 503
+    const err500 = HmrcApiError.fromHmrcResponse(500, 'Internal Server Error', 'testOp');
+    assert.strictEqual(err500.statusCode, 502);
+    assert.strictEqual(err500.message, 'HMRC is temporarily unavailable. Please try again later.');
+
+    // Network timeout
+    const netErr = HmrcApiError.networkError('testOp', new Error('ETIMEDOUT'));
+    assert.strictEqual(netErr.statusCode, 504);
+    assert.strictEqual(netErr.message, 'Unable to reach HMRC. Please try again.');
+
+    // Redaction verification: raw secret must never be exposed
+    const leakedErr = HmrcApiError.fromHmrcResponse(400, 'Error with secret=my_super_secret_12345 and Bearer abc123def456', 'testOp');
+    assert.ok(!leakedErr.message.includes('my_super_secret_12345'), 'Secrets must be sanitized');
+    assert.ok(!leakedErr.message.includes('abc123def456'), 'Tokens must be sanitized');
+  }
+  console.log('✅ Passed Test 15: HmrcApiError structured status mapping and redaction verified.\n');
+
+  // Test 16: OAuth Callback Redirect to Deployed Frontend
+  console.log('Test 16: HMRC OAuth Browser Callback Redirect to Frontend');
+  {
+    process.env.FRONTEND_URL = 'https://finora-web-ecru.vercel.app';
+    const frontend = getValidatedFrontendUrl();
+    assert.strictEqual(frontend, 'https://finora-web-ecru.vercel.app');
+
+    // Frontend URL must reject accidental API endpoint configuration
+    process.env.FRONTEND_URL = 'https://finora-api-alpha.vercel.app/api';
+    const guardedUrl = getValidatedFrontendUrl();
+    assert.strictEqual(guardedUrl, 'https://finora-web-ecru.vercel.app', 'Guarded URL must not point to API host');
+
+    // Restore valid frontend URL
+    process.env.FRONTEND_URL = 'https://finora-web-ecru.vercel.app';
+
+    // Test GET callback success redirect
+    let redirectedUrl = '';
+    const mockRes = {
+      redirect: (url: string) => { redirectedUrl = url; },
+    } as any;
+
+    const originalConsume = HmrcService.consumeOAuthState;
+    const originalHandle = HmrcService.handleCallback;
+    (HmrcService as any).consumeOAuthState = async () => 'firm-test-callback';
+    (HmrcService as any).handleCallback = async () => ({ isConnected: true });
+
+    try {
+      await HmrcController.handleCallback(
+        { method: 'GET', query: { code: 'code_123', state: 'state_123' }, body: {} } as any,
+        mockRes,
+        (() => {}) as any
+      );
+      assert.strictEqual(redirectedUrl, 'https://finora-web-ecru.vercel.app/integrations?hmrc=connected');
+
+      // Test GET callback error redirect
+      redirectedUrl = '';
+      await HmrcController.handleCallback(
+        { method: 'GET', query: { error: 'access_denied' }, body: {} } as any,
+        mockRes,
+        (() => {}) as any
+      );
+      assert.ok(redirectedUrl.includes('/integrations?hmrc_error=access_denied'));
+    } finally {
+      (HmrcService as any).consumeOAuthState = originalConsume;
+      (HmrcService as any).handleCallback = originalHandle;
+    }
+  }
+  console.log('✅ Passed Test 16: Browser callback redirects cleanly to deployed frontend without 404.\n');
+
+  // Test 17: Token Expiry & Failed Refresh Safety
+  console.log('Test 17: Expired Access Token & Failed Refresh Safety');
+  {
+    const originalFindUnique = (prisma as any).hmrcConnection.findUnique;
+    const originalUpdate = (prisma as any).hmrcConnection.update;
+    const originalRefresh = (HmrcService as any).client.refreshAccessToken;
+
+    let connectionUpdatedWithDisconnected = false;
+    (prisma as any).hmrcConnection.findUnique = async () => ({
+      firmId: 'firm-exp',
+      isConnected: true,
+      accessToken: encryptToken('expired_access_token'),
+      refreshToken: encryptToken('refresh_token_to_fail'),
+      expiresAt: new Date(Date.now() - 3600 * 1000), // Expired 1 hour ago
+    });
+    (prisma as any).hmrcConnection.update = async (args: any) => {
+      if (args.data?.isConnected === false) {
+        connectionUpdatedWithDisconnected = true;
+      }
+      return args;
+    };
+    (HmrcService as any).client.refreshAccessToken = async () => {
+      throw new HmrcApiError({
+        message: 'invalid_grant',
+        statusCode: 400,
+        operation: 'refreshAccessToken',
+      });
+    };
+
+    let caughtError: any = null;
+    try {
+      await HmrcService.getValidAccessToken('firm-exp');
+    } catch (err) {
+      caughtError = err;
+    } finally {
+      (prisma as any).hmrcConnection.findUnique = originalFindUnique;
+      (prisma as any).hmrcConnection.update = originalUpdate;
+      (HmrcService as any).client.refreshAccessToken = originalRefresh;
+    }
+
+    assert.ok(caughtError instanceof HmrcApiError, 'Must throw HmrcApiError when refresh of expired token fails');
+    assert.strictEqual(caughtError.statusCode, 401, 'Must return status 401');
+    assert.strictEqual(caughtError.message, 'HMRC authorization has expired. Please reconnect this company to HMRC.');
+    assert.strictEqual(connectionUpdatedWithDisconnected, true, 'Connection must be marked isConnected: false');
+  }
+  console.log('✅ Passed Test 17: Expired token refresh failure marks reauthorization required without silent fallback.\n');
+
+  // Test 18: Successful Token Refresh Atomic Persistence
+  console.log('Test 18: Successful Token Refresh Atomic Persistence');
+  {
+    const originalFindUnique = (prisma as any).hmrcConnection.findUnique;
+    const originalUpdate = (prisma as any).hmrcConnection.update;
+    const originalRefresh = (HmrcService as any).client.refreshAccessToken;
+
+    let persistedAccess = '';
+    let persistedRefresh = '';
+    let persistedExpiresAt: Date | null = null;
+
+    (prisma as any).hmrcConnection.findUnique = async () => ({
+      firmId: 'firm-refresh-ok',
+      isConnected: true,
+      accessToken: encryptToken('old_access_token'),
+      refreshToken: encryptToken('old_refresh_token'),
+      expiresAt: new Date(Date.now() + 60 * 1000), // Expiring in 1 minute (< 5 min threshold)
+    });
+    (prisma as any).hmrcConnection.update = async (args: any) => {
+      persistedAccess = args.data.accessToken;
+      persistedRefresh = args.data.refreshToken;
+      persistedExpiresAt = args.data.expiresAt;
+      return args;
+    };
+    (HmrcService as any).client.refreshAccessToken = async () => ({
+      access_token: 'brand_new_access_token',
+      refresh_token: 'brand_new_refresh_token',
+      expires_in: 14400,
+      scope: 'read:vat write:vat',
+      token_type: 'Bearer',
+    });
+
+    let returnedToken = '';
+    try {
+      returnedToken = await HmrcService.getValidAccessToken('firm-refresh-ok');
+    } finally {
+      (prisma as any).hmrcConnection.findUnique = originalFindUnique;
+      (prisma as any).hmrcConnection.update = originalUpdate;
+      (HmrcService as any).client.refreshAccessToken = originalRefresh;
+    }
+
+    assert.strictEqual(returnedToken, 'brand_new_access_token');
+    assert.ok(persistedAccess.startsWith('enc:'), 'Persisted access token must be encrypted');
+    assert.ok(persistedRefresh.startsWith('enc:'), 'Persisted refresh token must be encrypted');
+    assert.strictEqual(decryptToken(persistedAccess), 'brand_new_access_token');
+    assert.strictEqual(decryptToken(persistedRefresh), 'brand_new_refresh_token');
+    assert.ok(persistedExpiresAt && persistedExpiresAt.getTime() > Date.now(), 'Expiry must be updated in future');
+  }
+  console.log('✅ Passed Test 18: Token refresh atomically encrypts and persists new credentials.\n');
+
+  // Test 19: Concurrent Token Refresh Deduplication
+  console.log('Test 19: Concurrent Refresh Deduplication (Single-Use Token Protection)');
+  {
+    const originalFindUnique = (prisma as any).hmrcConnection.findUnique;
+    const originalUpdate = (prisma as any).hmrcConnection.update;
+    const originalRefresh = (HmrcService as any).client.refreshAccessToken;
+
+    let refreshCallCount = 0;
+
+    (prisma as any).hmrcConnection.findUnique = async () => ({
+      firmId: 'firm-concurrent-lock',
+      isConnected: true,
+      accessToken: encryptToken('expiring_access_token'),
+      refreshToken: encryptToken('single_use_refresh_token'),
+      expiresAt: new Date(Date.now() + 30 * 1000), // Expiring in 30 seconds
+    });
+    (prisma as any).hmrcConnection.update = async (args: any) => args;
+    (HmrcService as any).client.refreshAccessToken = async () => {
+      refreshCallCount++;
+      // Simulate small network delay
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return {
+        access_token: 'deduped_access_token',
+        refresh_token: 'deduped_refresh_token',
+        expires_in: 14400,
+        scope: 'read:vat write:vat',
+        token_type: 'Bearer',
+      };
+    };
+
+    let tokens: string[] = [];
+    try {
+      tokens = await Promise.all([
+        HmrcService.getValidAccessToken('firm-concurrent-lock'),
+        HmrcService.getValidAccessToken('firm-concurrent-lock'),
+        HmrcService.getValidAccessToken('firm-concurrent-lock'),
+      ]);
+    } finally {
+      (prisma as any).hmrcConnection.findUnique = originalFindUnique;
+      (prisma as any).hmrcConnection.update = originalUpdate;
+      (HmrcService as any).client.refreshAccessToken = originalRefresh;
+    }
+
+    assert.strictEqual(tokens.length, 3);
+    assert.strictEqual(tokens[0], 'deduped_access_token');
+    assert.strictEqual(tokens[1], 'deduped_access_token');
+    assert.strictEqual(tokens[2], 'deduped_access_token');
+    assert.strictEqual(refreshCallCount, 1, 'HMRC refresh endpoint must be called exactly ONCE for concurrent requests');
+  }
+  console.log('✅ Passed Test 19: Concurrent refresh deduplication prevents single-use refresh token races.\n');
+
+  // Test 20: lastSyncAt Semantics
+  console.log('Test 20: lastSyncAt Semantics (OAuth Connection vs Obligation Sync)');
+  {
+    const originalUpsert = (prisma as any).hmrcConnection.upsert;
+    const originalFindUnique = (prisma as any).hmrcConnection.findUnique;
+    const originalFirmFindUnique = (prisma as any).firm.findUnique;
+    const originalUpdate = (prisma as any).hmrcConnection.update;
+    const originalAudit = (prisma as any).auditLog.create;
+    const originalObligationUpsert = (prisma as any).vatObligation.upsert;
+    const originalObligationFindMany = (prisma as any).vatObligation.findMany;
+    const originalExchange = (HmrcService as any).client.exchangeCodeForTokens;
+    const originalGetObligations = (HmrcService as any).client.getVatObligations;
+
+    let upsertUpdateData: any = null;
+    let upsertCreateData: any = null;
+    let syncUpdatedLastSyncAt = false;
+
+    (prisma as any).firm.findUnique = async () => ({
+      id: 'firm-sync-semantics',
+      vatRegistered: true,
+      vatNumber: '123456789',
+    });
+    (prisma as any).auditLog.create = async () => ({ id: 'audit-1' });
+    (prisma as any).hmrcConnection.upsert = async (args: any) => {
+      upsertUpdateData = args.update;
+      upsertCreateData = args.create;
+      return {
+        id: 'conn-1',
+        firmId: 'firm-sync-semantics',
+        vrn: '123456789',
+        isConnected: true,
+        environment: 'sandbox',
+        lastSyncAt: null,
+      };
+    };
+    (HmrcService as any).client.exchangeCodeForTokens = async () => ({
+      access_token: 'mock_token',
+      refresh_token: 'mock_refresh',
+      expires_in: 14400,
+      scope: 'read:vat write:vat',
+      token_type: 'Bearer',
+    });
+
+    try {
+      // 1. Test OAuth Callback: must NOT set lastSyncAt on update, and must be null on create
+      await HmrcService.handleCallback('firm-sync-semantics', 'code_abc');
+      assert.strictEqual(upsertUpdateData.lastSyncAt, undefined, 'OAuth connection update must NOT update lastSyncAt');
+      assert.strictEqual(upsertCreateData.lastSyncAt, null, 'OAuth connection create must initialize lastSyncAt to null');
+
+      // 2. Test Sync Obligations: sets lastSyncAt on successful sync
+      (prisma as any).hmrcConnection.findUnique = async () => ({
+        firmId: 'firm-sync-semantics',
+        vrn: '123456789',
+        isConnected: true,
+        accessToken: encryptToken('valid_access'),
+        refreshToken: encryptToken('valid_refresh'),
+        expiresAt: new Date(Date.now() + 3600 * 1000),
+      });
+      (HmrcService as any).client.getVatObligations = async () => [
+        { start: '2026-01-01', end: '2026-03-31', due: '2026-05-07', status: 'O', periodKey: '26C1' },
+      ];
+      (prisma as any).vatObligation.upsert = async () => ({ id: 'ob-1' });
+      (prisma as any).vatObligation.findMany = async () => [{ periodKey: '26C1' }];
+      (prisma as any).hmrcConnection.update = async (args: any) => {
+        if (args.data?.lastSyncAt instanceof Date) {
+          syncUpdatedLastSyncAt = true;
+        }
+        return args;
+      };
+
+      await HmrcService.syncObligations('firm-sync-semantics');
+      assert.strictEqual(syncUpdatedLastSyncAt, true, 'lastSyncAt must update upon successful obligations synchronization');
+
+      // 3. Test Sync Obligations failure: if getVatObligations fails, lastSyncAt must NOT be updated
+      syncUpdatedLastSyncAt = false;
+      (HmrcService as any).client.getVatObligations = async () => {
+        throw new HmrcApiError({ message: 'Sync failed', statusCode: 502, operation: 'getVatObligations' });
+      };
+      let syncFailed = false;
+      try {
+        await HmrcService.syncObligations('firm-sync-semantics');
+      } catch {
+        syncFailed = true;
+      }
+      assert.strictEqual(syncFailed, true, 'Failed sync must throw');
+      assert.strictEqual(syncUpdatedLastSyncAt, false, 'lastSyncAt must NOT be updated when sync fails');
+    } finally {
+      (prisma as any).hmrcConnection.upsert = originalUpsert;
+      (prisma as any).hmrcConnection.findUnique = originalFindUnique;
+      (prisma as any).firm.findUnique = originalFirmFindUnique;
+      (prisma as any).hmrcConnection.update = originalUpdate;
+      (prisma as any).auditLog.create = originalAudit;
+      (prisma as any).vatObligation.upsert = originalObligationUpsert;
+      (prisma as any).vatObligation.findMany = originalObligationFindMany;
+      (HmrcService as any).client.exchangeCodeForTokens = originalExchange;
+      (HmrcService as any).client.getVatObligations = originalGetObligations;
+    }
+  }
+  console.log('✅ Passed Test 20: lastSyncAt semantics strictly preserved across OAuth and sync.\n');
 }
 
 runTests().catch((err) => {

@@ -17,8 +17,24 @@ import auditRoutes from './modules/audit/audit.routes';
 import firmRoutes from './modules/firms/firms.routes';
 
 import { errorHandler } from './middleware/errorHandler';
+import { validateEnvironment } from './config/env';
 
 dotenv.config();
+
+// Validate critical environment configuration at startup
+const envValidation = validateEnvironment();
+if (envValidation.warnings.length > 0) {
+  console.warn('[Startup] Environment configuration warnings:');
+  envValidation.warnings.forEach((w) => console.warn(`  ⚠️  ${w}`));
+}
+if (!envValidation.isValid) {
+  console.error('[Startup] CRITICAL: Missing required environment variables:');
+  envValidation.errors.forEach((e) => console.error(`  ❌ ${e}`));
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[Startup] Aborting: API cannot start with missing critical configuration in production.');
+    process.exit(1);
+  }
+}
 
 const app = express();
 

@@ -89,7 +89,8 @@ export async function apiFetch<T = any>(
     const data = await res.json();
 
     if (!res.ok) {
-      if (res.status === 401) {
+      const isHmrcUpstream401 = endpoint.startsWith('/hmrc') || data.error?.message?.toLowerCase().includes('hmrc');
+      if (res.status === 401 && !isHmrcUpstream401) {
         localStorage.removeItem('finora_token');
         localStorage.removeItem('finora_user');
       }

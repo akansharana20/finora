@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { HmrcService } from './hmrc.service';
 import { sendSuccess } from '../../utils/response';
 import { BadRequestError } from '../../utils/errors';
+import { getValidatedFrontendUrl } from '../../config/env';
 
 export class HmrcController {
   static async getConnectUrl(req: Request, res: Response, next: NextFunction) {
@@ -14,6 +15,9 @@ export class HmrcController {
   }
 
   static async handleCallback(req: Request, res: Response, next: NextFunction) {
+    const isBrowserGet = req.method === 'GET';
+    const frontendUrl = getValidatedFrontendUrl();
+
     try {
       const query = req.query as { code?: string; state?: string; error?: string; error_description?: string };
       const body = req.body as { code?: string; state?: string };
@@ -22,40 +26,40 @@ export class HmrcController {
       const state = query.state || body?.state;
       const oauthError = query.error || query.error_description;
 
-      const frontendUrl = (process.env.FRONTEND_URL || 'https://finora-web-ecru.vercel.app').replace(/\/+$/, '');
-
       if (oauthError) {
-        if (req.accepts('html') && req.method === 'GET') {
+        if (isBrowserGet) {
           return res.redirect(`${frontendUrl}/integrations?hmrc_error=${encodeURIComponent(oauthError)}`);
         }
         throw new BadRequestError(`HMRC authorization was denied or failed: ${oauthError}`);
       }
 
       if (!code) {
+        if (isBrowserGet) {
+          return res.redirect(`${frontendUrl}/integrations?hmrc_error=missing_code`);
+        }
         throw new BadRequestError('Missing authorization code from HMRC callback');
       }
 
       if (!state) {
-        if (req.accepts('html') && req.method === 'GET') {
+        if (isBrowserGet) {
           return res.redirect(`${frontendUrl}/integrations?hmrc_error=missing_firm_context`);
         }
         throw new BadRequestError('Unable to identify firm for HMRC connection callback');
       }
 
       const firmId = await HmrcService.consumeOAuthState(state);
-
       const connection = await HmrcService.handleCallback(firmId, code);
 
-      // If browser GET redirect directly from HMRC, redirect user back to integrations dashboard
-      if (req.accepts('html') && req.method === 'GET') {
+      // Browser GET redirect from HMRC sandbox/production must always return to frontend Integrations page
+      if (isBrowserGet) {
         return res.redirect(`${frontendUrl}/integrations?hmrc=connected`);
       }
 
       return sendSuccess(res, connection, 'Connected to HMRC successfully');
     } catch (error: any) {
-      const frontendUrl = (process.env.FRONTEND_URL || 'https://finora-web-ecru.vercel.app').replace(/\/+$/, '');
-      if (req.accepts('html') && req.method === 'GET') {
-        return res.redirect(`${frontendUrl}/integrations?hmrc_error=${encodeURIComponent(error.message || 'connection_failed')}`);
+      if (isBrowserGet) {
+        const safeReason = error?.message ? String(error.message).slice(0, 150) : 'connection_failed';
+        return res.redirect(`${frontendUrl}/integrations?hmrc_error=${encodeURIComponent(safeReason)}`);
       }
       return next(error);
     }

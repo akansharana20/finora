@@ -193,7 +193,7 @@ Finora is designed as a monorepo where **`apps/web`** (Frontend) and **`apps/api
 2. Set **Root Directory** to `apps/web` (or leave default root with root `vercel.json`).
 3. Framework Preset: **Vite** (Build: `npm run build`, Output: `dist`).
 4. Configure Environment Variables in Vercel:
-   - `VITE_API_URL`: Deployed API base URL (e.g., `https://finora-api.vercel.app/api`).
+   - `VITE_API_URL`: Deployed API base URL (e.g., `https://finora-api-alpha.vercel.app/api`).
 5. Redeploy frontend if `VITE_API_URL` is added after initial build.
 
 ### 3. Database Migration & Demo Data Seeder
