@@ -1,15 +1,8 @@
 ﻿{
-  "version": 2,
-  "framework": "vite",
-  "buildCommand": "tsc -b && vite build",
-  "outputDirectory": "dist",
-  "routes": [
+  "rewrites": [
     {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
