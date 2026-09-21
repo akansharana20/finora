@@ -26,8 +26,12 @@ The integration logic is decoupled into 3 clear layers:
 ## 4. Sandbox vs Mock vs Production
 
 When `INTEGRATION_MODE=mock`:
-- Returns standard test sandbox responses without failing when live credentials are absent.
-- Produces verifiable correlation receipts (`HMRC-SUB-...`).
+- Uses local simulated responses for automated tests only.
+- Must not be used for a live Sandbox verification because it does not contact HMRC.
+
+When `INTEGRATION_MODE=sandbox`, Finora uses the HMRC test OAuth and VAT API
+hosts and will not fabricate obligations or submission receipts when HMRC has
+no data for the configured Sandbox user.
 
 ## 5. Company Scoping and OAuth State
 

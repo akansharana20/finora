@@ -12,18 +12,15 @@ Finora is optimized for serverless multi-app deployment on Vercel:
 Ensure the following variables are configured in the Vercel project dashboard:
 - `DATABASE_URL` (Neon PostgreSQL Pooled Connection URL)
 - `JWT_SECRET`
-- `INTEGRATION_MODE` (`production` or `sandbox`)
+- `INTEGRATION_MODE` (`sandbox` for HMRC Sandbox; `production` for live MTD)
 - `HMRC_CLIENT_ID`, `HMRC_CLIENT_SECRET`, `HMRC_REDIRECT_URI`
-- `XERO_CLIENT_ID`, `XERO_CLIENT_SECRET`, `XERO_REDIRECT_URI`
+- `HMRC_BASE_URL`, `HMRC_AUTH_BASE_URL`, `HMRC_ENVIRONMENT`
+- `HMRC_ENCRYPTION_KEY`
+- `HMRC_STATE_SECRET` (recommended; otherwise `JWT_SECRET` is used)
+- `FRONTEND_URL` and `CORS_ORIGIN`
 - `VITE_API_URL` (Production API domain URL)
 
 ## 3. Database Migration in Production
-
-Before deploying a new version:
-```bash
-npx prisma db push
-```
-or run migrations against Neon PostgreSQL.
 
 The HMRC OAuth flow persists single-use state in `hmrc_oauth_states`. Apply the
 tracked migration to the Production database before deploying the API:
@@ -32,9 +29,9 @@ tracked migration to the Production database before deploying the API:
 npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
 ```
 
-The API must also have `HMRC_CLIENT_ID`, `HMRC_CLIENT_SECRET`,
-`HMRC_REDIRECT_URI`, `JWT_SECRET`, and `HMRC_ENCRYPTION_KEY` configured in the
-Production environment. `HMRC_CLIENT_SECRET` and `HMRC_ENCRYPTION_KEY` are
-used after the authorization redirect, while the connect URL requires the
-client ID, redirect URI, state secret (`HMRC_STATE_SECRET` or `JWT_SECRET`),
-and the OAuth state table.
+Do not run `db push` against a production database as part of the normal
+deployment workflow. Review and deploy tracked migrations instead.
+
+The API must have the HMRC Sandbox variables described in
+[hmrc-sandbox-checklist.md](hmrc-sandbox-checklist.md) configured before the
+first connection attempt.
