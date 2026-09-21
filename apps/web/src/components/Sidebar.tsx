@@ -32,19 +32,24 @@ export const Sidebar: React.FC = () => {
   const [companyMenuOpen, setCompanyMenuOpen] = useState(false);
   const [companies, setCompanies] = useState<any[]>([]);
 
-  const { user, activeFirmId, activeFirmName, switchCompany } = useAuth();
+  const { user, activeFirmId, activeFirmName, switchCompany, clearActiveCompany } = useAuth();
 
   const toggleCollapse = () => setIsCollapsed(!isCollapsed);
 
   useEffect(() => {
-    if (user?.role === 'ADMIN') {
+    if (user) {
       apiFetch('/firms').then((res) => {
         if (res.success && res.data) {
           setCompanies(res.data);
+          const activeCompany = res.data.find((company: any) => company.id === activeFirmId);
+          if (!activeCompany) {
+            if (res.data[0]) switchCompany(res.data[0].id, res.data[0].name);
+            else clearActiveCompany();
+          }
         }
       });
     }
-  }, [user?.role, activeFirmId]);
+  }, [user?.id, activeFirmId]);
 
   const handleSelectCompany = (c: any) => {
     switchCompany(c.id, c.name);
@@ -89,7 +94,7 @@ export const Sidebar: React.FC = () => {
       {/* Firm & Role Badge / Company Switcher */}
       {!isCollapsed && (
         <div className="relative px-4 py-3 bg-slate-950/60 border-b border-slate-800/80">
-          {user?.role === 'ADMIN' ? (
+          {companies.length > 0 ? (
             <button
               onClick={() => setCompanyMenuOpen(!companyMenuOpen)}
               className="w-full text-left p-1.5 -m-1.5 rounded-lg hover:bg-slate-800/70 transition-colors group flex items-center justify-between"
@@ -118,7 +123,7 @@ export const Sidebar: React.FC = () => {
           </div>
 
           {/* Switcher Dropdown Menu */}
-          {companyMenuOpen && user?.role === 'ADMIN' && (
+          {companyMenuOpen && (
             <div className="absolute left-2 right-2 top-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden py-1 divide-y divide-slate-800">
               <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 Switch Company
@@ -138,7 +143,7 @@ export const Sidebar: React.FC = () => {
                   </button>
                 ))}
               </div>
-              <div className="p-1.5 bg-slate-950/60">
+              {user?.role === 'ADMIN' && <div className="p-1.5 bg-slate-950/60">
                 <Link
                   to="/companies"
                   onClick={() => setCompanyMenuOpen(false)}
@@ -147,7 +152,7 @@ export const Sidebar: React.FC = () => {
                   <Building2 size={13} />
                   <span>Manage Companies</span>
                 </Link>
-              </div>
+              </div>}
             </div>
           )}
         </div>

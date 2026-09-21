@@ -78,6 +78,7 @@ model Firm {
   updatedAt          DateTime @updatedAt
 
   users           User[]
+  memberships     FirmMembership[]
   customers       Customer[]
   suppliers       Supplier[]
   invoices        Invoice[]
@@ -96,7 +97,7 @@ model Firm {
 
 model User {
   id           String   @id @default(uuid())
-  firmId       String
+  firmId       String?
   email        String   @unique
   passwordHash String
   name         String
@@ -104,11 +105,28 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  firm      Firm       @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  firm      Firm?      @relation(fields: [firmId], references: [id], onDelete: SetNull)
+  memberships FirmMembership[]
   auditLogs AuditLog[]
 
   @@index([firmId])
   @@map("users")
+}
+
+model FirmMembership {
+  id        String   @id @default(uuid())
+  userId    String
+  firmId    String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, firmId])
+  @@index([firmId])
+  @@map("firm_memberships")
 }
 
 model Customer {

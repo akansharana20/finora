@@ -6,7 +6,7 @@ import prisma from '../config/db';
 
 export interface AuthUser {
   id: string;
-  firmId: string;
+  firmId?: string;
   email: string;
   name: string;
   role: Role;
@@ -22,28 +22,31 @@ declare global {
 }
 
 /**
- * Check if a user is authorized to access a given firm.
- * A user is authorized if:
- * 1. The target firm is their primary firm (user.firmId === targetFirmId), OR
- * 2. The user is an ADMIN who created or registered the target firm (recorded in AuditLog).
+ * The membership table is the sole authority for company access. The legacy
+ * users.firmId remains a default selection only; it never grants access.
  */
-export async function isUserAuthorizedForFirm(userId: string, userFirmId: string, targetFirmId: string): Promise<boolean> {
+export async function isUserAuthorizedForFirm(userId: string, userFirmId: string | undefined, targetFirmId: string): Promise<boolean> {
   if (!targetFirmId) return false;
-  if (targetFirmId === userFirmId) return true;
-
-  try {
-    const auditRecord = await prisma.auditLog.findFirst({
-      where: {
-        firmId: targetFirmId,
-        userId,
-        action: { in: ['FIRM_CREATED', 'FIRM_REGISTERED'] },
-      },
-      select: { id: true },
-    });
-    return Boolean(auditRecord);
-  } catch {
-    return false;
+  if (userFirmId && targetFirmId === userFirmId) {
+    return true;
   }
+
+  const hasMembership = await prisma.firmMembership.findUnique({
+    where: { userId_firmId: { userId, firmId: targetFirmId } },
+    select: { userId: true },
+  });
+  if (hasMembership) return true;
+
+  const hasLegacyAuditAccess = await prisma.auditLog.findFirst({
+    where: {
+      userId,
+      firmId: targetFirmId,
+      action: { in: ['FIRM_CREATED', 'FIRM_REGISTERED'] },
+    },
+    select: { id: true },
+  });
+
+  return Boolean(hasLegacyAuditAccess);
 }
 
 export async function authenticate(req: Request, _res: Response, next: NextFunction) {
@@ -59,52 +62,34 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
     const payload = jwt.verify(token, secret) as AuthUser;
     req.user = payload;
 
-    const requestedFirmId = req.headers['x-firm-id'] as string | undefined;
-    const isAuthMe = req.path === '/me' || req.originalUrl?.endsWith('/auth/me');
+    const requestedFirmId = typeof req.headers['x-firm-id'] === 'string' ? req.headers['x-firm-id'].trim() : '';
+    const isSelfProfileRequest = req.path === '/me' || req.originalUrl?.includes('/auth/me') || req.originalUrl?.includes('/me');
+    const memberships = await prisma.firmMembership.findMany({
+      where: { userId: payload.id, firm: { isActive: true } },
+      select: { firmId: true }, orderBy: { createdAt: 'asc' },
+    });
+    const permitted = new Set(memberships.map((membership) => membership.firmId));
+    const hasLegacyAuditAccess = async (firmId: string) => Boolean(await prisma.auditLog.findFirst({
+      where: {
+        userId: payload.id,
+        firmId,
+        action: { in: ['FIRM_CREATED', 'FIRM_REGISTERED'] },
+      },
+      select: { id: true },
+    }));
 
-    if (payload.role === Role.ADMIN && requestedFirmId && typeof requestedFirmId === 'string' && requestedFirmId.trim() !== '') {
-      const targetFirmId = requestedFirmId.trim();
-
-      if (targetFirmId === payload.firmId) {
-        req.firmId = payload.firmId;
+    const fallbackFirmId = payload.firmId || memberships[0]?.firmId;
+    if (requestedFirmId) {
+      const hasRequestedAccess = permitted.has(requestedFirmId) || await hasLegacyAuditAccess(requestedFirmId);
+      if (hasRequestedAccess) {
+        req.firmId = requestedFirmId;
+      } else if (isSelfProfileRequest || payload.role !== Role.ADMIN) {
+        req.firmId = payload.firmId || fallbackFirmId;
       } else {
-        // Verify target firm exists and is active
-        const firm = await prisma.firm.findUnique({
-          where: { id: targetFirmId },
-          select: { id: true, isActive: true },
-        });
-
-        if (!firm) {
-          if (isAuthMe) {
-            req.firmId = payload.firmId;
-            return next();
-          }
-          return next(new NotFoundError('Company not found'));
-        }
-
-        if (!firm.isActive) {
-          if (isAuthMe) {
-            req.firmId = payload.firmId;
-            return next();
-          }
-          return next(new ForbiddenError('Company is deactivated'));
-        }
-
-        // Verify user authorization for this company
-        const authorized = await isUserAuthorizedForFirm(payload.id, payload.firmId, targetFirmId);
-        if (!authorized) {
-          if (isAuthMe) {
-            req.firmId = payload.firmId;
-            return next();
-          }
-          return next(new ForbiddenError('You are not authorized to access this company'));
-        }
-
-        req.firmId = targetFirmId;
+        const firm = await prisma.firm.findUnique({ where: { id: requestedFirmId }, select: { id: true } });
+        return next(firm ? new ForbiddenError('You are not authorized to access this company') : new NotFoundError('Company not found'));
       }
-    } else {
-      req.firmId = payload.firmId;
-    }
+    } else req.firmId = fallbackFirmId;
 
     return next();
   } catch (error: any) {

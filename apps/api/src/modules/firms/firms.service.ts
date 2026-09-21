@@ -1,6 +1,7 @@
 import prisma from '../../config/db';
 import { NotFoundError, BadRequestError, ForbiddenError } from '../../utils/errors';
 import { isUserAuthorizedForFirm } from '../../middleware/auth';
+import { Role } from '@prisma/client';
 
 export interface CreateFirmDto {
   name: string;
@@ -32,35 +33,37 @@ function validateVatNumber(vatNumber?: string) {
 }
 
 export class FirmsService {
-  static async list(adminUserId?: string, userFirmId?: string) {
-    let whereClause: any = {};
+  static async list(userId: string, userFirmId?: string) {
+    const memberships = await prisma.firmMembership.findMany({
+      where: { userId },
+      select: { firmId: true },
+    });
 
-    if (adminUserId) {
-      const createdLogs = await prisma.auditLog.findMany({
-        where: {
-          userId: adminUserId,
-          action: { in: ['FIRM_CREATED', 'FIRM_REGISTERED'] },
-        },
-        select: { firmId: true },
-      });
+    const firmIds = new Set<string>(memberships.map((membership) => membership.firmId));
+    if (userFirmId) firmIds.add(userFirmId);
 
-      const authorizedFirmIds = new Set<string>();
-      if (userFirmId) {
-        authorizedFirmIds.add(userFirmId);
-      }
-      createdLogs.forEach((log) => {
-        if (log.firmId) authorizedFirmIds.add(log.firmId);
-      });
+    const legacyCreatedFirms = await prisma.auditLog.findMany({
+      where: {
+        userId,
+        action: { in: ['FIRM_CREATED', 'FIRM_REGISTERED'] },
+      },
+      select: { firmId: true },
+    });
 
-      whereClause = {
-        id: { in: Array.from(authorizedFirmIds) },
-      };
+    for (const log of legacyCreatedFirms) {
+      if (log.firmId) firmIds.add(log.firmId);
+    }
+
+    const authorizedFirmIds = [...firmIds];
+    if (authorizedFirmIds.length === 0) {
+      return [];
     }
 
     return prisma.firm.findMany({
-      where: whereClause,
+      where: { id: { in: authorizedFirmIds } },
       orderBy: { createdAt: 'desc' },
       include: {
+        memberships: { where: { userId }, select: { role: true } },
         _count: {
           select: {
             users: true,
@@ -74,7 +77,7 @@ export class FirmsService {
   }
 
   static async getById(id: string, adminUserId?: string, userFirmId?: string) {
-    if (adminUserId && userFirmId) {
+    if (adminUserId) {
       const authorized = await isUserAuthorizedForFirm(adminUserId, userFirmId, id);
       if (!authorized) {
         throw new ForbiddenError('You are not authorized to access this company');
@@ -159,7 +162,11 @@ export class FirmsService {
       // NOTE: NO dummy/fabricated VAT obligations are created for newly created companies.
       // In Phase 2, actual quarterly VAT obligations will be retrieved directly from HMRC MTD API.
 
-      // Audit log to record company creation and establish administrative ownership
+      // The creator is explicitly assigned. Audit logs are not authorization records.
+      if (adminUserId) {
+        const creator = await tx.user.findUnique({ where: { id: adminUserId }, select: { role: true } });
+        await tx.firmMembership.create({ data: { userId: adminUserId, firmId: createdFirm.id, role: creator?.role || Role.USER } });
+      }
       await tx.auditLog.create({
         data: {
           firmId: createdFirm.id,
@@ -178,6 +185,8 @@ export class FirmsService {
   }
 
   static async update(id: string, dto: UpdateFirmDto, adminUserId?: string, userFirmId?: string) {
+    if (!adminUserId) throw new ForbiddenError('Company administrator access is required');
+    await FirmsService.requireCompanyAdmin(id, adminUserId);
     await FirmsService.getById(id, adminUserId, userFirmId);
     validateVatNumber(dto.vatNumber);
 
@@ -218,6 +227,8 @@ export class FirmsService {
   }
 
   static async setStatus(id: string, isActive: boolean, adminUserId?: string, userFirmId?: string) {
+    if (!adminUserId) throw new ForbiddenError('Company administrator access is required');
+    await FirmsService.requireCompanyAdmin(id, adminUserId);
     await FirmsService.getById(id, adminUserId, userFirmId);
 
     const updated = await prisma.firm.update({
@@ -256,17 +267,59 @@ export class FirmsService {
   }
 
   static async getUsers(firmId: string) {
-    return prisma.user.findMany({
+    const memberships = await prisma.firmMembership.findMany({
       where: { firmId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-      },
+      select: { role: true, createdAt: true, user: { select: { id: true, name: true, email: true, role: true } } },
       orderBy: { createdAt: 'desc' },
     });
+    return memberships.map((membership) => ({ ...membership.user, role: membership.role, createdAt: membership.createdAt }));
+  }
+
+  static async assignUser(firmId: string, userId: string, role: Role, actorId: string) {
+    await FirmsService.requireCompanyAdmin(firmId, actorId);
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!user) throw new NotFoundError('User not found');
+    return prisma.firmMembership.upsert({
+      where: { userId_firmId: { userId, firmId } },
+      update: { role }, create: { userId, firmId, role },
+    });
+  }
+
+  static async removeUserAssignment(firmId: string, userId: string, actorId: string) {
+    await FirmsService.requireCompanyAdmin(firmId, actorId);
+    await prisma.firmMembership.delete({ where: { userId_firmId: { userId, firmId } } });
+    return { removed: true };
+  }
+
+  static async remove(id: string, actorId: string) {
+    await FirmsService.requireCompanyAdmin(id, actorId);
+    const firm = await prisma.firm.findUnique({ where: { id }, select: { id: true, name: true } });
+    if (!firm) throw new NotFoundError('Company not found');
+    await prisma.$transaction(async (tx) => {
+      // Explicit order makes the operation portable and prevents partial deletion.
+      await tx.payment.deleteMany({ where: { firmId: id } });
+      await tx.invoiceItem.deleteMany({ where: { invoice: { firmId: id } } });
+      await tx.invoice.deleteMany({ where: { firmId: id } });
+      await tx.expense.deleteMany({ where: { firmId: id } });
+      await tx.customer.deleteMany({ where: { firmId: id } });
+      await tx.supplier.deleteMany({ where: { firmId: id } });
+      await tx.vatRate.deleteMany({ where: { firmId: id } });
+      await tx.vatReturn.deleteMany({ where: { firmId: id } });
+      await tx.vatObligation.deleteMany({ where: { firmId: id } });
+      await tx.hmrcOAuthState.deleteMany({ where: { firmId: id } });
+      await tx.hmrcConnection.deleteMany({ where: { firmId: id } });
+      await tx.xeroConnection.deleteMany({ where: { firmId: id } });
+      await tx.auditLog.deleteMany({ where: { firmId: id } });
+      await tx.firmMembership.deleteMany({ where: { firmId: id } });
+      await tx.user.updateMany({ where: { firmId: id }, data: { firmId: null } });
+      await tx.firm.delete({ where: { id } });
+    });
+    return { id: firm.id, name: firm.name };
+  }
+
+  private static async requireCompanyAdmin(firmId: string, userId: string) {
+    const membership = await prisma.firmMembership.findUnique({ where: { userId_firmId: { userId, firmId } }, select: { role: true } });
+    if (!membership || membership.role !== Role.ADMIN) throw new ForbiddenError('Only a company administrator can manage this company');
   }
 }
 

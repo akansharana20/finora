@@ -41,6 +41,7 @@ export const Integrations: React.FC = () => {
       if (decoded === 'missing_firm_context') readableError = 'Unable to identify company context for HMRC connection.';
       else if (decoded === 'missing_code') readableError = 'HMRC did not return an authorization code.';
       else if (decoded === 'access_denied') readableError = 'HMRC authorization was cancelled or denied.';
+      else if (decoded === 'connection_failed') readableError = 'HMRC could not complete the connection. Please try again or contact support.';
       setHmrcErrorMessage(`HMRC connection error: ${readableError}`);
       setHmrcSuccessMessage(null);
       fetchStatus();
@@ -262,7 +263,7 @@ export const Integrations: React.FC = () => {
             </p>
 
             <div className="mt-4 pt-3 border-t border-slate-100 text-xs space-y-1 text-slate-600">
-              <div>Org: <strong className="text-slate-800">{xeroStatus?.tenantName || 'Acme Consulting (Xero)'}</strong></div>
+              <div>Org: <strong className="text-slate-800">{xeroStatus?.tenantName || 'Not connected'}</strong></div>
               <div>Environment: <strong className="text-blue-600 font-semibold">{xeroStatus?.environment || 'sandbox'}</strong></div>
               {xeroStatus?.lastSyncAt && (
                 <div>Last Sync: <span className="text-slate-500">{new Date(xeroStatus.lastSyncAt).toLocaleString('en-GB')}</span></div>

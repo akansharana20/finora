@@ -97,6 +97,12 @@ async function runTests() {
           return { count: 4 };
         },
       },
+      user: {
+        findUnique: async (_args: any) => ({ role: Role.ADMIN }),
+      },
+      firmMembership: {
+        create: async (_args: any) => ({ id: 'mock-membership-1' }),
+      },
       vatObligation: {
         create: async (_args: any) => {
           vatObligationCreated = true;

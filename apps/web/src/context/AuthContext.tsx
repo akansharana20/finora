@@ -6,7 +6,8 @@ export interface UserProfile {
   email: string;
   name: string;
   role: 'ADMIN' | 'ACCOUNTANT' | 'USER';
-  firmId: string;
+  membershipRole?: 'ADMIN' | 'ACCOUNTANT' | 'USER' | null;
+  firmId?: string | null;
   firmName?: string;
   firm?: {
     id: string;
@@ -26,6 +27,7 @@ interface AuthContextType {
   activeFirmId: string;
   activeFirmName: string;
   switchCompany: (firmId: string, firmName: string) => void;
+  clearActiveCompany: () => void;
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
 }
@@ -98,11 +100,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const fullUser = { ...loggedUser, firmName, demo: isDemoMode() };
       setUser(fullUser);
       setToken(authToken);
-      setActiveFirmId(loggedUser.firmId);
+      setActiveFirmId(loggedUser.firmId || '');
       setActiveFirmName(firmName);
       localStorage.setItem('finora_token', authToken);
       localStorage.setItem('finora_user', JSON.stringify(fullUser));
-      localStorage.setItem('finora_active_firm_id', loggedUser.firmId);
+      if (loggedUser.firmId) localStorage.setItem('finora_active_firm_id', loggedUser.firmId);
       localStorage.setItem('finora_active_firm_name', firmName);
       return { success: true };
     }
@@ -136,6 +138,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.dispatchEvent(new CustomEvent('finora_company_switched', { detail: { firmId, firmName } }));
   };
 
+  const clearActiveCompany = () => {
+    setActiveFirmId(''); setActiveFirmName('');
+    localStorage.removeItem('finora_active_firm_id');
+    localStorage.removeItem('finora_active_firm_name');
+    window.dispatchEvent(new CustomEvent('finora_company_switched', { detail: { firmId: '', firmName: '' } }));
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -158,6 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activeFirmId,
         activeFirmName,
         switchCompany,
+        clearActiveCompany,
         login,
         logout,
       }}

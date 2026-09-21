@@ -60,6 +60,7 @@ export class AuthService {
           role: Role.ADMIN,
         },
       });
+      await tx.firmMembership.create({ data: { userId: user.id, firmId: firm.id, role: Role.ADMIN } });
 
       await tx.auditLog.create({
         data: {
@@ -103,7 +104,7 @@ export class AuthService {
   static async login(dto: LoginDto) {
     const user = await prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
-      include: { firm: true },
+      include: { firm: true, memberships: { include: { firm: true }, orderBy: { createdAt: 'asc' } } },
     });
 
     if (!user) {
@@ -115,10 +116,13 @@ export class AuthService {
       throw new UnauthorizedError('Invalid email or password');
     }
 
+    const defaultFirm = user.firm && user.memberships.some((membership) => membership.firmId === user.firmId)
+      ? user.firm : user.memberships.find((membership) => membership.firm.isActive)?.firm;
+    const defaultMembership = user.memberships.find((membership) => membership.firmId === defaultFirm?.id);
     const token = jwt.sign(
       {
         id: user.id,
-        firmId: user.firmId,
+        firmId: defaultFirm?.id,
         email: user.email,
         name: user.name,
         role: user.role,
@@ -128,9 +132,9 @@ export class AuthService {
     );
 
     // Audit log
-    await prisma.auditLog.create({
+    if (defaultFirm) await prisma.auditLog.create({
       data: {
-        firmId: user.firmId,
+        firmId: defaultFirm.id,
         userId: user.id,
         action: 'USER_LOGIN',
         entity: 'User',
@@ -145,8 +149,9 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
-        firmId: user.firmId,
-        firmName: user.firm.name,
+        firmId: defaultFirm?.id || null,
+        firmName: defaultFirm?.name || '',
+        membershipRole: defaultMembership?.role || null,
       },
       token,
     };
@@ -155,18 +160,18 @@ export class AuthService {
   static async getProfile(userId: string, activeFirmId?: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { firm: true },
+      include: { firm: true, memberships: { include: { firm: true }, orderBy: { createdAt: 'asc' } } },
     });
 
     if (!user) {
       throw new NotFoundError('User profile not found');
     }
 
-    let activeFirm = user.firm;
+    let activeFirm = user.firm && user.memberships.some((membership) => membership.firmId === user.firmId) ? user.firm : user.memberships.find((membership) => membership.firm.isActive)?.firm;
 
     if (activeFirmId && activeFirmId !== user.firmId) {
       const { isUserAuthorizedForFirm } = await import('../../middleware/auth.js');
-      const authorized = await isUserAuthorizedForFirm(user.id, user.firmId, activeFirmId);
+      const authorized = await isUserAuthorizedForFirm(user.id, user.firmId || undefined, activeFirmId);
       if (authorized) {
         const found = await prisma.firm.findUnique({
           where: { id: activeFirmId },
@@ -177,11 +182,16 @@ export class AuthService {
       }
     }
 
+    if (!activeFirm) {
+      return { id: user.id, email: user.email, name: user.name, role: user.role, membershipRole: null, firmId: null, firmName: '', firm: null };
+    }
+    const activeMembership = user.memberships.find((membership) => membership.firmId === activeFirm.id);
     return {
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
+      membershipRole: activeMembership?.role || null,
       firmId: activeFirm.id,
       firmName: activeFirm.name,
       firm: {

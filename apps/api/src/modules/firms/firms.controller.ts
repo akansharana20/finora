@@ -5,7 +5,7 @@ import { sendSuccess } from '../../utils/response';
 export class FirmsController {
   static async list(req: Request, res: Response, next: NextFunction) {
     try {
-      const firms = await FirmsService.list(req.user?.id, req.user?.firmId);
+      const firms = await FirmsService.list(req.user!.id);
       return sendSuccess(res, firms);
     } catch (error) {
       return next(error);
@@ -49,6 +49,27 @@ export class FirmsController {
     }
   }
 
+  static async remove(req: Request, res: Response, next: NextFunction) {
+    try {
+      const firm = await FirmsService.remove(req.params.id, req.user!.id);
+      return sendSuccess(res, firm, 'Company removed successfully');
+    } catch (error) { return next(error); }
+  }
+
+  static async assignUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      const membership = await FirmsService.assignUser(req.params.id, req.params.userId, req.body.role, req.user!.id);
+      return sendSuccess(res, membership, 'Company access assigned');
+    } catch (error) { return next(error); }
+  }
+
+  static async removeUserAssignment(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await FirmsService.removeUserAssignment(req.params.id, req.params.userId, req.user!.id);
+      return sendSuccess(res, result, 'Company access removed');
+    } catch (error) { return next(error); }
+  }
+
 
   static async getProfile(req: Request, res: Response, next: NextFunction) {
     try {
@@ -75,5 +96,12 @@ export class FirmsController {
     } catch (error) {
       return next(error);
     }
+  }
+
+  static async getFirmUsers(req: Request, res: Response, next: NextFunction) {
+    try {
+      await FirmsService.getById(req.params.id, req.user!.id, req.user?.firmId);
+      return sendSuccess(res, await FirmsService.getUsers(req.params.id));
+    } catch (error) { return next(error); }
   }
 }

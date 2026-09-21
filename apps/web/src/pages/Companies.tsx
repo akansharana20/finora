@@ -14,6 +14,7 @@ import {
   X,
   AlertCircle,
   FileCheck,
+  Trash2,
 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 
@@ -45,7 +46,7 @@ export interface Company {
 }
 
 export const Companies: React.FC = () => {
-  const { user, activeFirmId, switchCompany } = useAuth();
+  const { user, activeFirmId, switchCompany, clearActiveCompany } = useAuth();
 
   // Role guard: Only ADMIN can access company management
   if (user && user.role !== 'ADMIN') {
@@ -60,6 +61,9 @@ export const Companies: React.FC = () => {
 
   const [showModal, setShowModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [companyToRemove, setCompanyToRemove] = useState<Company | null>(null);
+  const [removeConfirmation, setRemoveConfirmation] = useState('');
+  const [removing, setRemoving] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -202,6 +206,25 @@ export const Companies: React.FC = () => {
   const handleSwitchCompany = (comp: Company) => {
     switchCompany(comp.id, comp.name);
     setSuccessMessage(`Switched active company to "${comp.name}". Workspace scoped to this entity.`);
+  };
+
+  const handleRemoveCompany = async () => {
+    if (!companyToRemove || removeConfirmation !== companyToRemove.name) return;
+    setRemoving(true); setError(null);
+    const res = await apiFetch(`/firms/${companyToRemove.id}`, { method: 'DELETE' });
+    setRemoving(false);
+    if (!res.success) { setError(res.error?.message || 'Failed to remove company'); return; }
+    const remaining = companies.filter((company) => company.id !== companyToRemove.id);
+    setCompanies(remaining);
+    if (activeFirmId === companyToRemove.id) {
+      if (remaining[0]) switchCompany(remaining[0].id, remaining[0].name);
+      else {
+        clearActiveCompany();
+      }
+    }
+    setCompanyToRemove(null); setRemoveConfirmation('');
+    setSuccessMessage(`Company "${companyToRemove.name}" was permanently removed.`);
+    fetchCompanies();
   };
 
   const filteredCompanies = companies.filter((c) => {
@@ -422,6 +445,9 @@ export const Companies: React.FC = () => {
                     >
                       {comp.isActive !== false ? <XCircle size={15} /> : <CheckCircle2 size={15} />}
                     </button>
+                    <button onClick={() => { setCompanyToRemove(comp); setRemoveConfirmation(''); }} className="p-1.5 text-slate-400 hover:text-red-700 hover:bg-red-50 rounded transition-colors" title="Remove Company" aria-label={`Remove ${comp.name}`}>
+                      <Trash2 size={15} />
+                    </button>
                   </div>
 
                   {isCurrentActive ? (
@@ -631,6 +657,20 @@ export const Companies: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {companyToRemove && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="remove-company-title">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-xl p-6">
+            <h3 id="remove-company-title" className="font-bold text-slate-900">Remove “{companyToRemove.name}”?</h3>
+            <p className="text-sm text-slate-600 mt-2">This will permanently remove the company and its associated Finora data. This cannot be undone.</p>
+            <label className="block text-xs font-semibold text-slate-700 mt-5 mb-1">Type {companyToRemove.name} to confirm</label>
+            <input autoFocus value={removeConfirmation} onChange={(event) => setRemoveConfirmation(event.target.value)} className="w-full p-2 border border-slate-300 rounded-md" />
+            <div className="flex justify-end gap-3 mt-5">
+              <button onClick={() => setCompanyToRemove(null)} disabled={removing} className="px-3.5 py-2 border rounded-lg text-slate-700">Cancel</button>
+              <button onClick={handleRemoveCompany} disabled={removing || removeConfirmation !== companyToRemove.name} className="px-3.5 py-2 bg-red-700 disabled:bg-red-300 text-white rounded-lg font-semibold">{removing ? 'Removing…' : 'Remove Company'}</button>
+            </div>
           </div>
         </div>
       )}

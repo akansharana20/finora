@@ -1,15 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { Building, Users, Shield, Save, CheckCircle2, History } from 'lucide-react';
+import { Building, Users, Shield, Save, CheckCircle2, History, AlertCircle, X } from 'lucide-react';
 
 export const Settings: React.FC = () => {
   const { user } = useAuth();
+  const canManageCompany = user?.membershipRole === 'ADMIN';
   const [activeTab, setActiveTab] = useState<'firm' | 'users' | 'audit'>('firm');
 
   const [firm, setFirm] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<Record<string, string[]>>({});
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedCompanyId, setSelectedCompanyId] = useState('');
+  const [assignmentBusy, setAssignmentBusy] = useState(false);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [formData, setFormData] = useState({
@@ -55,9 +62,23 @@ export const Settings: React.FC = () => {
         });
       }
     } else if (activeTab === 'users') {
-      const res = await apiFetch('/firms/users');
-      if (res.success && res.data) {
-        setUsers(res.data);
+      const [userRes, firmsRes] = await Promise.all([apiFetch('/firms/users'), apiFetch('/firms')]);
+      if (userRes.success && userRes.data) {
+        setUsers(userRes.data);
+        if (!selectedUserId && userRes.data[0]) setSelectedUserId(userRes.data[0].id);
+      }
+      if (firmsRes.success && firmsRes.data) {
+        setCompanies(firmsRes.data);
+        const membershipResponses = await Promise.all(firmsRes.data.map((company: any) => apiFetch(`/firms/${company.id}/users`)));
+        const nextAssignments: Record<string, string[]> = {};
+        membershipResponses.forEach((response: any, index) => {
+          if (response.success && Array.isArray(response.data)) {
+            response.data.forEach((member: any) => {
+              (nextAssignments[member.id] ||= []).push(firmsRes.data[index].id);
+            });
+          }
+        });
+        setAssignments(nextAssignments);
       }
     } else if (activeTab === 'audit') {
       const res = await apiFetch('/audit');
@@ -66,6 +87,23 @@ export const Settings: React.FC = () => {
       }
     }
     setLoading(false);
+  };
+
+  const selectedUser = users.find((candidate) => candidate.id === selectedUserId);
+  const selectedUserAssignments = assignments[selectedUserId] || [];
+  const manageableCompanies = companies.filter((company) => company.memberships?.[0]?.role === 'ADMIN');
+
+  const changeAssignment = async (firmId: string, remove = false) => {
+    if (!selectedUserId) return;
+    setAssignmentBusy(true); setAssignmentError(null); setMessage(null);
+    const response = await apiFetch(`/firms/${firmId}/users/${selectedUserId}`, {
+      method: remove ? 'DELETE' : 'PUT',
+      body: remove ? undefined : JSON.stringify({ role: selectedUser?.role || 'USER' }),
+    });
+    setAssignmentBusy(false);
+    if (!response.success) { setAssignmentError(response.error?.message || 'Unable to update company assignment'); return; }
+    setMessage(remove ? 'Company access removed.' : 'Company access assigned.');
+    fetchSettingsData();
   };
 
   const handleUpdateFirm = async (e: React.FormEvent) => {
@@ -160,7 +198,7 @@ export const Settings: React.FC = () => {
                 <input
                   type="text"
                   required
-                  disabled={user?.role !== 'ADMIN'}
+                  disabled={!canManageCompany}
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
@@ -171,7 +209,7 @@ export const Settings: React.FC = () => {
                 <label className="block font-semibold text-slate-700 mb-1">Legal / Registered Name</label>
                 <input
                   type="text"
-                  disabled={user?.role !== 'ADMIN'}
+                  disabled={!canManageCompany}
                   value={formData.legalName}
                   onChange={(e) => setFormData({ ...formData, legalName: e.target.value })}
                   className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
@@ -184,7 +222,7 @@ export const Settings: React.FC = () => {
                 <label className="block font-semibold text-slate-700 mb-1">UK Companies House Number</label>
                 <input
                   type="text"
-                  disabled={user?.role !== 'ADMIN'}
+                  disabled={!canManageCompany}
                   value={formData.companyNumber}
                   onChange={(e) => setFormData({ ...formData, companyNumber: e.target.value })}
                   className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600 font-mono"
@@ -196,7 +234,7 @@ export const Settings: React.FC = () => {
                 <label className="block font-semibold text-slate-700 mb-1">HMRC VAT Registration Number (VRN)</label>
                 <input
                   type="text"
-                  disabled={user?.role !== 'ADMIN'}
+                  disabled={!canManageCompany}
                   value={formData.vatNumber}
                   onChange={(e) => setFormData({ ...formData, vatNumber: e.target.value })}
                   className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600 font-mono"
@@ -209,7 +247,7 @@ export const Settings: React.FC = () => {
               <label className="block font-semibold text-slate-700 mb-1">Business Address</label>
               <input
                 type="text"
-                disabled={user?.role !== 'ADMIN'}
+                disabled={!canManageCompany}
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
@@ -221,7 +259,7 @@ export const Settings: React.FC = () => {
                 <label className="block font-semibold text-slate-700 mb-1">City</label>
                 <input
                   type="text"
-                  disabled={user?.role !== 'ADMIN'}
+                  disabled={!canManageCompany}
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                   className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
@@ -232,7 +270,7 @@ export const Settings: React.FC = () => {
                 <label className="block font-semibold text-slate-700 mb-1">County</label>
                 <input
                   type="text"
-                  disabled={user?.role !== 'ADMIN'}
+                  disabled={!canManageCompany}
                   value={formData.county}
                   onChange={(e) => setFormData({ ...formData, county: e.target.value })}
                   className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
@@ -243,7 +281,7 @@ export const Settings: React.FC = () => {
                 <label className="block font-semibold text-slate-700 mb-1">UK Postcode</label>
                 <input
                   type="text"
-                  disabled={user?.role !== 'ADMIN'}
+                  disabled={!canManageCompany}
                   value={formData.postcode}
                   onChange={(e) => setFormData({ ...formData, postcode: e.target.value })}
                   className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600 font-mono uppercase"
@@ -256,7 +294,7 @@ export const Settings: React.FC = () => {
                 <label className="block font-semibold text-slate-700 mb-1">Contact Email</label>
                 <input
                   type="email"
-                  disabled={user?.role !== 'ADMIN'}
+                  disabled={!canManageCompany}
                   value={formData.contactEmail}
                   onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
                   className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
@@ -268,7 +306,7 @@ export const Settings: React.FC = () => {
                 <label className="block font-semibold text-slate-700 mb-1">Contact Phone</label>
                 <input
                   type="text"
-                  disabled={user?.role !== 'ADMIN'}
+                  disabled={!canManageCompany}
                   value={formData.contactPhone}
                   onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
                   className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600"
@@ -281,7 +319,7 @@ export const Settings: React.FC = () => {
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">VAT Scheme</label>
                 <select
-                  disabled={user?.role !== 'ADMIN'}
+                  disabled={!canManageCompany}
                   value={formData.vatScheme}
                   onChange={(e) => setFormData({ ...formData, vatScheme: e.target.value })}
                   className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600 bg-white"
@@ -295,7 +333,7 @@ export const Settings: React.FC = () => {
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Financial Year Start</label>
                 <select
-                  disabled={user?.role !== 'ADMIN'}
+                  disabled={!canManageCompany}
                   value={formData.financialYearStart}
                   onChange={(e) => setFormData({ ...formData, financialYearStart: Number(e.target.value) })}
                   className="w-full p-2 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-600 bg-white"
@@ -308,7 +346,7 @@ export const Settings: React.FC = () => {
               </div>
             </div>
 
-            {user?.role === 'ADMIN' && (
+            {canManageCompany && (
               <div className="pt-3 flex justify-end">
                 <button
                   type="submit"
@@ -342,7 +380,7 @@ export const Settings: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {users.map((u) => (
-                <tr key={u.id} className="hover:bg-slate-50">
+                <tr key={u.id} onClick={() => canManageCompany && setSelectedUserId(u.id)} className={`hover:bg-slate-50 ${selectedUserId === u.id ? 'bg-blue-50' : ''} ${canManageCompany ? 'cursor-pointer' : ''}`}>
                   <td className="py-3 px-4 font-bold text-slate-800">{u.name}</td>
                   <td className="py-3 px-4 text-slate-600">{u.email}</td>
                   <td className="py-3 px-4">
@@ -365,6 +403,30 @@ export const Settings: React.FC = () => {
               ))}
             </tbody>
           </table>
+          {canManageCompany && selectedUser && (
+            <div className="border-t border-slate-200 p-5 bg-slate-50">
+              <h4 className="font-bold text-sm text-slate-900">Company assignments for {selectedUser.name}</h4>
+              <p className="text-xs text-slate-500 mt-1">Access is enforced by the API; this page reflects the server’s current memberships.</p>
+              {assignmentError && <div className="mt-3 p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg flex gap-2"><AlertCircle size={15} /><span>{assignmentError}</span></div>}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {selectedUserAssignments.length ? selectedUserAssignments.map((firmId) => {
+                  const company = companies.find((item) => item.id === firmId);
+                  const canManage = company?.memberships?.[0]?.role === 'ADMIN';
+                  return company && <span key={firmId} className="inline-flex items-center gap-1 bg-white border border-slate-200 rounded-full pl-3 pr-1 py-1 text-xs font-medium text-slate-700">
+                    ✓ {company.name}
+                    {canManage && <button disabled={assignmentBusy} onClick={() => changeAssignment(firmId, true)} className="p-1 text-slate-400 hover:text-red-700 disabled:opacity-50" aria-label={`Remove ${company.name} access`} title="Remove company access"><X size={13} /></button>}
+                  </span>;
+                }) : <span className="text-xs text-slate-500">No company assignments.</span>}
+              </div>
+              <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                <select value={selectedCompanyId} onChange={(event) => setSelectedCompanyId(event.target.value)} className="flex-1 p-2 border border-slate-300 rounded text-xs bg-white">
+                  <option value="">Select a company to assign</option>
+                  {manageableCompanies.filter((company) => !selectedUserAssignments.includes(company.id)).map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+                </select>
+                <button disabled={!selectedCompanyId || assignmentBusy} onClick={() => { changeAssignment(selectedCompanyId); setSelectedCompanyId(''); }} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold rounded text-xs">{assignmentBusy ? 'Updating…' : 'Assign company'}</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

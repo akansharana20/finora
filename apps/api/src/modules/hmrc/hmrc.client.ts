@@ -94,12 +94,6 @@ export class HmrcClient {
       code,
     });
 
-    console.info('[HMRC] Exchanging authorization code for tokens', {
-      operation: 'exchangeCodeForTokens',
-      environment: config.environment,
-      redirectUri: config.redirectUri,
-    });
-
     let res: Response;
     try {
       res = await fetch(tokenUrl, {
@@ -142,11 +136,6 @@ export class HmrcClient {
       client_secret: config.clientSecret,
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
-    });
-
-    console.info('[HMRC] Refreshing OAuth access token', {
-      operation: 'refreshAccessToken',
-      environment: config.environment,
     });
 
     let res: Response;

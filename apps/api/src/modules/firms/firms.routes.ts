@@ -10,14 +10,18 @@ router.use(authenticate);
 
 // Current Firm Profile & Users
 router.get('/profile', FirmsController.getProfile);
-router.put('/profile', authorizeRoles(Role.ADMIN), FirmsController.updateProfile);
+router.put('/profile', FirmsController.updateProfile);
 router.get('/users', FirmsController.getUsers);
 
 // Admin-Only Multi-Company Management
-router.get('/', authorizeRoles(Role.ADMIN), FirmsController.list);
+router.get('/', FirmsController.list);
 router.post('/', authorizeRoles(Role.ADMIN), FirmsController.create);
-router.get('/:id', authorizeRoles(Role.ADMIN), FirmsController.getById);
-router.put('/:id', authorizeRoles(Role.ADMIN), FirmsController.update);
-router.patch('/:id/status', authorizeRoles(Role.ADMIN), FirmsController.setStatus);
+router.get('/:id/users', FirmsController.getFirmUsers);
+router.get('/:id', FirmsController.getById);
+router.put('/:id', FirmsController.update);
+router.patch('/:id/status', FirmsController.setStatus);
+router.put('/:id/users/:userId', FirmsController.assignUser);
+router.delete('/:id/users/:userId', FirmsController.removeUserAssignment);
+router.delete('/:id', FirmsController.remove);
 
 export default router;

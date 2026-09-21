@@ -58,8 +58,9 @@ export class HmrcController {
       return sendSuccess(res, connection, 'Connected to HMRC successfully');
     } catch (error: any) {
       if (isBrowserGet) {
-        const safeReason = error?.message ? String(error.message).slice(0, 150) : 'connection_failed';
-        return res.redirect(`${frontendUrl}/integrations?hmrc_error=${encodeURIComponent(safeReason)}`);
+        // OAuth/API error messages can contain upstream implementation details.
+        // Keep the browser response deliberately stable and non-sensitive.
+        return res.redirect(`${frontendUrl}/integrations?hmrc_error=connection_failed`);
       }
       return next(error);
     }
