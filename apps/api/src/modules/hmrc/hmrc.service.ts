@@ -19,6 +19,16 @@ function normalizeVrn(vatNumber?: string | null) {
   return vatNumber?.replace(/\D/g, '') || '';
 }
 
+export function getObligationDateRange() {
+  const to = new Date();
+  const from = new Date(to);
+  from.setUTCDate(from.getUTCDate() - 365);
+  return {
+    from: from.toISOString().slice(0, 10),
+    to: to.toISOString().slice(0, 10),
+  };
+}
+
 export class HmrcService {
   private static client = new HmrcClient();
 
@@ -337,10 +347,11 @@ export class HmrcService {
 
     const accessToken = await HmrcService.getValidAccessToken(firmId);
     const fraudHeaders = buildHmrcFraudHeaders(req);
+    const dateRange = getObligationDateRange();
 
     let obligations: HmrcObligationResponse[];
     try {
-      obligations = await HmrcService.client.getVatObligations(vrn, accessToken, { fraudHeaders });
+      obligations = await HmrcService.client.getVatObligations(vrn, accessToken, { ...dateRange, fraudHeaders });
       await prisma.$transaction(async (tx) => {
         for (const ob of obligations) {
           await tx.vatObligation.upsert({

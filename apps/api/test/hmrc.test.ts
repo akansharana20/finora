@@ -3,6 +3,7 @@ import { encryptToken, decryptToken } from '../src/utils/crypto';
 import { buildHmrcFraudHeaders } from '../src/modules/hmrc/hmrc.fraudPrevention';
 import { HmrcClient } from '../src/modules/hmrc/hmrc.client';
 import { HmrcApiError } from '../src/modules/hmrc/hmrc.error';
+import { getObligationDateRange } from '../src/modules/hmrc/hmrc.service';
 
 async function runTests() {
   process.env.HMRC_CLIENT_ID = 'test-client-id';
@@ -40,14 +41,18 @@ async function runTests() {
 
   const originalFetch = globalThis.fetch;
   try {
-    globalThis.fetch = (async () => new Response(JSON.stringify({
+    let capturedObligationsUrl = '';
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      capturedObligationsUrl = String(input);
+      return new Response(JSON.stringify({
       code: 'CLIENT_OR_AGENT_NOT_AUTHORISED',
       message: 'The client or agent is not authorised',
-    }), { status: 403, headers: { 'x-correlation-id': 'corr-123' } })) as typeof fetch;
+      }), { status: 403, headers: { 'x-correlation-id': 'corr-123' } });
+    }) as typeof fetch;
 
     let caughtError: unknown;
     try {
-      await client.getVatObligations('123456789', 'access-token');
+      await client.getVatObligations('123456789', 'access-token', getObligationDateRange());
     } catch (error) {
       caughtError = error;
     }
@@ -57,6 +62,13 @@ async function runTests() {
     assert.strictEqual((caughtError as HmrcApiError).correlationId, 'corr-123');
     assert.strictEqual((caughtError as HmrcApiError).statusCode, 403);
     assert.ok(!(caughtError as HmrcApiError).message.includes('access-token'));
+    const requestUrl = new URL(capturedObligationsUrl);
+    const from = requestUrl.searchParams.get('from') || '';
+    const to = requestUrl.searchParams.get('to') || '';
+    assert.match(from, /^\d{4}-\d{2}-\d{2}$/);
+    assert.match(to, /^\d{4}-\d{2}-\d{2}$/);
+    assert.ok(new Date(`${to}T00:00:00Z`).getTime() >= new Date(`${from}T00:00:00Z`).getTime());
+    assert.ok(new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime() <= 365 * 86400000);
   } finally {
     globalThis.fetch = originalFetch;
   }
