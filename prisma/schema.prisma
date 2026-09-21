@@ -89,7 +89,6 @@ model Firm {
   vatReturns      VatReturn[]
   hmrcConnection  HmrcConnection?
   hmrcOAuthStates HmrcOAuthState[]
-  xeroConnection  XeroConnection?
   auditLogs       AuditLog[]
 
   @@map("firms")
@@ -346,6 +345,9 @@ model HmrcConnection {
   expiresAt    DateTime?
   scope        String?
   lastSyncAt   DateTime?
+  lastSyncError String?
+  lastSyncErrorCode String?
+  lastSyncErrorAt DateTime?
   environment  String    @default("sandbox")
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -368,25 +370,6 @@ model HmrcOAuthState {
   @@index([firmId])
   @@index([expiresAt])
   @@map("hmrc_oauth_states")
-}
-
-model XeroConnection {
-  id           String    @id @default(uuid())
-  firmId       String    @unique
-  tenantId     String?
-  tenantName   String?
-  isConnected  Boolean   @default(false)
-  accessToken  String?
-  refreshToken String?
-  expiresAt    DateTime?
-  lastSyncAt   DateTime?
-  environment  String    @default("demo")
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
-
-  @@map("xero_connections")
 }
 
 model AuditLog {

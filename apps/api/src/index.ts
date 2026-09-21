@@ -79,7 +79,7 @@ const healthHandler = (_req: express.Request, res: express.Response) => {
     status: 'ok',
     service: 'finora-api',
     timestamp: new Date().toISOString(),
-    integrationMode: process.env.INTEGRATION_MODE || 'sandbox',
+    environment: process.env.HMRC_ENVIRONMENT || 'sandbox',
   });
 };
 

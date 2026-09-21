@@ -17,7 +17,6 @@
     "db:generate": "prisma generate --schema=apps/api/prisma/schema.prisma",
     "db:push": "prisma db push --schema=apps/api/prisma/schema.prisma",
     "db:migrate": "prisma db push --schema=apps/api/prisma/schema.prisma",
-    "db:seed": "tsx prisma/seed.ts",
     "postinstall": "prisma generate --schema=apps/api/prisma/schema.prisma"
   },
   "repository": {

@@ -13,29 +13,7 @@ export interface RecordPaymentDto {
   provider?: string;
 }
 
-export interface PaymentProvider {
-  processPayment(amount: number, currency: string, reference?: string): Promise<{ success: boolean; providerTxId: string; metadata?: any }>;
-}
-
-export class MockPaymentProvider implements PaymentProvider {
-  async processPayment(amount: number, currency: string, reference?: string) {
-    const isMock = process.env.INTEGRATION_MODE === 'mock' || !process.env.PAYMENT_PROVIDER_KEY;
-    return {
-      success: true,
-      providerTxId: `PAY-${isMock ? 'MOCK' : 'LIVE'}-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
-      metadata: {
-        processedAt: new Date().toISOString(),
-        currency,
-        reference: reference || 'Internal Payment',
-        mode: isMock ? 'mock' : 'live',
-      },
-    };
-  }
-}
-
 export class PaymentsService {
-  private static provider: PaymentProvider = new MockPaymentProvider();
-
   static async list(firmId: string) {
     return prisma.payment.findMany({
       where: { firmId },
@@ -83,9 +61,6 @@ export class PaymentsService {
       }
     }
 
-    // Process via provider abstraction
-    const providerResult = await PaymentsService.provider.processPayment(dto.amount, 'GBP', dto.reference);
-
     return prisma.$transaction(async (tx) => {
       const payment = await tx.payment.create({
         data: {
@@ -97,10 +72,8 @@ export class PaymentsService {
           paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),
           method: dto.method || 'BANK_TRANSFER',
           reference: dto.reference || `REF-${Date.now()}`,
-          status: providerResult.success ? PaymentStatus.SUCCEEDED : PaymentStatus.FAILED,
-          provider: dto.provider || 'INTERNAL',
-          providerTxId: providerResult.providerTxId,
-          metadata: JSON.stringify(providerResult.metadata),
+          status: PaymentStatus.SUCCEEDED,
+          provider: dto.provider || 'MANUAL',
         },
         include: { invoice: true },
       });

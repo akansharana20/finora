@@ -14,7 +14,6 @@ export function validateEnvironment(): EnvValidationResult {
   const warnings: string[] = [];
   const nodeEnv = process.env.NODE_ENV || 'development';
   const isProduction = nodeEnv === 'production';
-  const integrationMode = (process.env.INTEGRATION_MODE || 'sandbox').toLowerCase();
 
   // 1. DATABASE_URL
   if (!process.env.DATABASE_URL) {
@@ -44,17 +43,21 @@ export function validateEnvironment(): EnvValidationResult {
     warnings.push('FRONTEND_URL is not set; falling back to default production frontend host.');
   }
 
-  // 4. HMRC Configuration in non-mock mode
-  if (integrationMode !== 'mock') {
-    if (!process.env.HMRC_CLIENT_ID) {
-      warnings.push('HMRC_CLIENT_ID is missing; live/sandbox HMRC authorization will not be possible.');
-    }
-    if (!process.env.HMRC_CLIENT_SECRET) {
-      warnings.push('HMRC_CLIENT_SECRET is missing; live/sandbox HMRC token exchange will not be possible.');
-    }
-    if (!process.env.HMRC_REDIRECT_URI && isProduction) {
-      warnings.push('HMRC_REDIRECT_URI is unset in production; falling back to default callback URL.');
-    }
+  // 4. HMRC Configuration
+  if (!process.env.HMRC_CLIENT_ID) {
+    warnings.push('HMRC_CLIENT_ID is missing; HMRC authorization will not be possible.');
+  }
+  if (!process.env.HMRC_CLIENT_SECRET) {
+    warnings.push('HMRC_CLIENT_SECRET is missing; HMRC token exchange will not be possible.');
+  }
+  if (!process.env.HMRC_REDIRECT_URI) {
+    warnings.push('HMRC_REDIRECT_URI is unset; HMRC authorization will not be possible.');
+  }
+  if (!process.env.HMRC_BASE_URL) {
+    warnings.push('HMRC_BASE_URL is unset; HMRC API requests will not be possible.');
+  }
+  if (!process.env.HMRC_AUTH_BASE_URL) {
+    warnings.push('HMRC_AUTH_BASE_URL is unset; HMRC authorization will not be possible.');
   }
 
   // 5. HMRC Encryption Key
@@ -79,5 +82,5 @@ export function getValidatedFrontendUrl(): string {
     }
     console.warn('[Config] FRONTEND_URL appears to point to an API endpoint; using default web frontend.');
   }
-  return 'https://finora-web-ecru.vercel.app';
+  return process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173';
 }

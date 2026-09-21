@@ -1,7 +1,7 @@
 import { Request } from 'express';
 import prisma from '../../config/db';
 import { NotFoundError, BadRequestError } from '../../utils/errors';
-import { HmrcClient, HmrcSubmissionReceipt, HmrcTokenResponse } from './hmrc.client';
+import { HmrcClient, HmrcObligationResponse, HmrcSubmissionReceipt, HmrcTokenResponse } from './hmrc.client';
 import { HmrcApiError } from './hmrc.error';
 import { buildHmrcFraudHeaders } from './hmrc.fraudPrevention';
 import { encryptToken, decryptToken } from '../../utils/crypto';
@@ -36,8 +36,7 @@ export class HmrcService {
       throw new BadRequestError('A valid 9-digit VAT Registration Number (VRN) is required before connecting HMRC.');
     }
 
-    const mode = (process.env.INTEGRATION_MODE || '').toLowerCase();
-    if (mode !== 'mock' && !process.env.HMRC_CLIENT_ID) {
+    if (!process.env.HMRC_CLIENT_ID || !process.env.HMRC_REDIRECT_URI) {
       throw new BadRequestError('HMRC OAuth is not configured: HMRC_CLIENT_ID environment variable is missing on the API server.');
     }
 
@@ -99,6 +98,9 @@ export class HmrcService {
         refreshToken: encryptedRefreshToken,
         expiresAt,
         scope: tokenResponse.scope || 'read:vat write:vat',
+        lastSyncError: null,
+        lastSyncErrorCode: null,
+        lastSyncErrorAt: null,
         environment: process.env.HMRC_ENVIRONMENT || 'sandbox',
       },
       create: {
@@ -110,6 +112,9 @@ export class HmrcService {
         expiresAt,
         scope: tokenResponse.scope || 'read:vat write:vat',
         lastSyncAt: null,
+        lastSyncError: null,
+        lastSyncErrorCode: null,
+        lastSyncErrorAt: null,
         environment: process.env.HMRC_ENVIRONMENT || 'sandbox',
       },
     });
@@ -262,12 +267,11 @@ export class HmrcService {
       where: { firmId },
     }), prisma.firm.findUnique({ where: { id: firmId }, select: { vatRegistered: true, vatNumber: true } })]);
 
-    const mode = (process.env.INTEGRATION_MODE || '').toLowerCase();
-    const isMock = mode === 'mock';
     const isConfigured = Boolean(process.env.HMRC_CLIENT_ID && process.env.HMRC_CLIENT_SECRET);
-    const environment = mode === 'mock' ? 'mock' : (process.env.HMRC_ENVIRONMENT || (mode === 'production' ? 'production' : 'sandbox'));
+    const environment = process.env.HMRC_ENVIRONMENT || 'sandbox';
     const isExpired = Boolean(connection?.expiresAt && connection.expiresAt.getTime() <= Date.now() && connection?.isConnected);
-    const isConnected = Boolean(firm?.vatRegistered && connection?.isConnected && !isExpired);
+    const authorizationError = connection?.lastSyncErrorCode === 'CLIENT_OR_AGENT_NOT_AUTHORISED';
+    const isConnected = Boolean(firm?.vatRegistered && connection?.isConnected && !isExpired && !authorizationError);
 
     return {
       isConnected,
@@ -278,9 +282,12 @@ export class HmrcService {
       hmrcAvailable: Boolean(firm?.vatRegistered && normalizeVrn(firm.vatNumber).length === 9),
       environment: connection?.environment || environment,
       lastSyncAt: connection?.lastSyncAt || null,
+      lastSyncError: connection?.lastSyncError || null,
+      lastSyncErrorCode: connection?.lastSyncErrorCode || null,
+      lastSyncErrorAt: connection?.lastSyncErrorAt || null,
       expiresAt: connection?.expiresAt || null,
-      isMock,
       isConfigured,
+      status: !connection || !connection.isConnected ? 'NOT_CONNECTED' : authorizationError ? 'AUTHORIZATION_ERROR' : isExpired ? 'NOT_CONNECTED' : connection.lastSyncAt ? 'SYNCED' : 'CONNECTED',
     };
   }
 
@@ -297,6 +304,9 @@ export class HmrcService {
           accessToken: null,
           refreshToken: null,
           expiresAt: null,
+          lastSyncError: null,
+          lastSyncErrorCode: null,
+          lastSyncErrorAt: null,
         },
       });
 
@@ -328,40 +338,51 @@ export class HmrcService {
     const accessToken = await HmrcService.getValidAccessToken(firmId);
     const fraudHeaders = buildHmrcFraudHeaders(req);
 
-    // Call HMRC API
-    const obligations = await HmrcService.client.getVatObligations(vrn, accessToken, {
-      fraudHeaders,
-    });
-
-    for (const ob of obligations) {
-      await prisma.vatObligation.upsert({
-        where: {
-          firmId_periodKey: { firmId, periodKey: ob.periodKey },
-        },
-        update: {
-          status: ob.status === 'F' ? VatObligationStatus.FULFILLED : VatObligationStatus.OPEN,
-          receivedDate: ob.received ? new Date(ob.received) : null,
-          startPeriod: new Date(ob.start),
-          endPeriod: new Date(ob.end),
-          dueDate: new Date(ob.due),
-        },
-        create: {
-          firmId,
-          startPeriod: new Date(ob.start),
-          endPeriod: new Date(ob.end),
-          dueDate: new Date(ob.due),
-          status: ob.status === 'F' ? VatObligationStatus.FULFILLED : VatObligationStatus.OPEN,
-          periodKey: ob.periodKey,
-          receivedDate: ob.received ? new Date(ob.received) : null,
-        },
+    let obligations: HmrcObligationResponse[];
+    try {
+      obligations = await HmrcService.client.getVatObligations(vrn, accessToken, { fraudHeaders });
+      await prisma.$transaction(async (tx) => {
+        for (const ob of obligations) {
+          await tx.vatObligation.upsert({
+            where: { firmId_periodKey: { firmId, periodKey: ob.periodKey } },
+            update: {
+              status: ob.status === 'F' ? VatObligationStatus.FULFILLED : VatObligationStatus.OPEN,
+              receivedDate: ob.received ? new Date(ob.received) : null,
+              startPeriod: new Date(ob.start),
+              endPeriod: new Date(ob.end),
+              dueDate: new Date(ob.due),
+            },
+            create: {
+              firmId,
+              startPeriod: new Date(ob.start),
+              endPeriod: new Date(ob.end),
+              dueDate: new Date(ob.due),
+              status: ob.status === 'F' ? VatObligationStatus.FULFILLED : VatObligationStatus.OPEN,
+              periodKey: ob.periodKey,
+              receivedDate: ob.received ? new Date(ob.received) : null,
+            },
+          });
+        }
+        if (connection) {
+          await tx.hmrcConnection.update({
+            where: { firmId },
+            data: { lastSyncAt: new Date(), lastSyncError: null, lastSyncErrorCode: null, lastSyncErrorAt: null },
+          });
+        }
       });
-    }
-
-    if (connection) {
-      await prisma.hmrcConnection.update({
-        where: { firmId },
-        data: { lastSyncAt: new Date() },
-      });
+    } catch (error) {
+      if (connection) {
+        const hmrcError = error instanceof HmrcApiError ? error : undefined;
+        await prisma.hmrcConnection.update({
+          where: { firmId },
+          data: {
+            lastSyncError: hmrcError?.message || 'HMRC synchronization failed.',
+            lastSyncErrorCode: hmrcError?.hmrcCode || null,
+            lastSyncErrorAt: new Date(),
+          },
+        });
+      }
+      throw error;
     }
 
     await prisma.auditLog.create({

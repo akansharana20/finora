@@ -16,5 +16,4 @@ The database schema (`prisma/schema.prisma`) defines 13 core relational models t
 - **`VatObligation`**: Quarterly VAT obligations retrieved from HMRC.
 - **`VatReturn`**: HMRC MTD 9-Box VAT Return record storing submitted correlation IDs.
 - **`HmrcConnection`**: Encrypted OAuth access tokens, refresh tokens, and VRN state for HMRC MTD.
-- **`XeroConnection`**: Encrypted OAuth tokens and tenant ID for Xero synchronization.
 - **`AuditLog`**: Immutable security log tracking all critical mutations.

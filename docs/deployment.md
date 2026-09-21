@@ -12,7 +12,6 @@ Finora is optimized for serverless multi-app deployment on Vercel:
 Ensure the following variables are configured in the Vercel project dashboard:
 - `DATABASE_URL` (Neon PostgreSQL Pooled Connection URL)
 - `JWT_SECRET`
-- `INTEGRATION_MODE` (`sandbox` for HMRC Sandbox; `production` for live MTD)
 - `HMRC_CLIENT_ID`, `HMRC_CLIENT_SECRET`, `HMRC_REDIRECT_URI`
 - `HMRC_BASE_URL`, `HMRC_AUTH_BASE_URL`, `HMRC_ENVIRONMENT`
 - `HMRC_ENCRYPTION_KEY`

@@ -41,31 +41,21 @@ export interface HmrcSubmissionReceipt {
 }
 
 export class HmrcClient {
-  private static readonly defaultRedirectUri = 'http://localhost:4000/api/hmrc/callback';
-
   private getConfig() {
     const trimTrailingSlashes = (value: string) => value.replace(/\/+$/, '');
     return {
-      baseUrl: trimTrailingSlashes((process.env.HMRC_BASE_URL || 'https://test-api.service.hmrc.gov.uk').trim()),
-      authBaseUrl: trimTrailingSlashes((process.env.HMRC_AUTH_BASE_URL || 'https://test-www.tax.service.gov.uk').trim()),
+      baseUrl: trimTrailingSlashes((process.env.HMRC_BASE_URL || '').trim()),
+      authBaseUrl: trimTrailingSlashes((process.env.HMRC_AUTH_BASE_URL || '').trim()),
       clientId: (process.env.HMRC_CLIENT_ID || '').trim(),
       clientSecret: (process.env.HMRC_CLIENT_SECRET || '').trim(),
-      redirectUri: (process.env.HMRC_REDIRECT_URI || HmrcClient.defaultRedirectUri).trim(),
-      environment: (process.env.HMRC_ENVIRONMENT || process.env.INTEGRATION_MODE || 'sandbox').trim(),
-      isMockMode: (process.env.INTEGRATION_MODE || '').toLowerCase() === 'mock',
+      redirectUri: (process.env.HMRC_REDIRECT_URI || '').trim(),
     };
   }
 
   getAuthorizationUrl(state: string): string {
     const config = this.getConfig();
-    if (config.isMockMode) {
-      const callback = config.redirectUri;
-      const delimiter = callback.includes('?') ? '&' : '?';
-      return `${callback}${delimiter}code=mock_authorization_code&state=${state}`;
-    }
-
-    if (!config.clientId) {
-      throw new BadRequestError('HMRC OAuth Client ID is missing. Please configure HMRC_CLIENT_ID on the API server.');
+    if (!config.clientId || !config.redirectUri || !config.authBaseUrl) {
+      throw new BadRequestError('HMRC OAuth is not fully configured. Set HMRC_CLIENT_ID, HMRC_REDIRECT_URI, and HMRC_AUTH_BASE_URL on the API server.');
     }
 
     const redirectUri = encodeURIComponent(config.redirectUri);
@@ -75,16 +65,9 @@ export class HmrcClient {
 
   async exchangeCodeForTokens(code: string): Promise<HmrcTokenResponse> {
     const config = this.getConfig();
-    if (config.isMockMode || code.startsWith('mock_')) {
-      return {
-        access_token: `mock_hmrc_access_token_${Date.now()}`,
-        refresh_token: `mock_hmrc_refresh_token_${Date.now()}`,
-        expires_in: 14400, // 4 hours
-        scope: 'read:vat write:vat',
-        token_type: 'Bearer',
-      };
+    if (!config.clientId || !config.clientSecret || !config.redirectUri || !config.baseUrl) {
+      throw new BadRequestError('HMRC token exchange is not fully configured on the API server.');
     }
-
     const tokenUrl = `${config.baseUrl}/oauth/token`;
     const bodyParams = new URLSearchParams({
       client_id: config.clientId,
@@ -120,16 +103,9 @@ export class HmrcClient {
 
   async refreshAccessToken(refreshToken: string): Promise<HmrcTokenResponse> {
     const config = this.getConfig();
-    if (config.isMockMode || refreshToken.startsWith('mock_')) {
-      return {
-        access_token: `mock_hmrc_refreshed_token_${Date.now()}`,
-        refresh_token: `mock_hmrc_refresh_token_${Date.now()}`,
-        expires_in: 14400,
-        scope: 'read:vat write:vat',
-        token_type: 'Bearer',
-      };
+    if (!config.clientId || !config.clientSecret || !config.baseUrl) {
+      throw new BadRequestError('HMRC token refresh is not fully configured on the API server.');
     }
-
     const tokenUrl = `${config.baseUrl}/oauth/token`;
     const bodyParams = new URLSearchParams({
       client_id: config.clientId,
@@ -173,15 +149,9 @@ export class HmrcClient {
     }
   ): Promise<HmrcObligationResponse[]> {
     const config = this.getConfig();
-    if (config.isMockMode || (accessToken && accessToken.startsWith('mock_'))) {
-      return [
-        { start: '2025-10-01', end: '2025-12-31', due: '2026-02-07', status: 'F', periodKey: '25C4', received: '2026-02-01' },
-        { start: '2026-01-01', end: '2026-03-31', due: '2026-05-07', status: 'F', periodKey: '26C1', received: '2026-04-28' },
-        { start: '2026-04-01', end: '2026-06-30', due: '2026-08-07', status: 'O', periodKey: '26C2' },
-        { start: '2026-07-01', end: '2026-09-30', due: '2026-11-07', status: 'O', periodKey: '26C3' },
-      ];
+    if (!config.baseUrl) {
+      throw new BadRequestError('HMRC API base URL is not configured on the API server.');
     }
-
     if (!accessToken) {
       throw new HmrcApiError({
         message: 'HMRC authorization has expired. Please reconnect this company to HMRC.',
@@ -235,18 +205,9 @@ export class HmrcClient {
     fraudHeaders?: Record<string, string>
   ): Promise<HmrcSubmissionReceipt> {
     const config = this.getConfig();
-    if (config.isMockMode || (accessToken && accessToken.startsWith('mock_'))) {
-      const correlationId = `HMRC-SUB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-      const formBundleNumber = `${Math.floor(100000000000 + Math.random() * 900000000000)}`;
-      return {
-        formBundleNumber,
-        paymentIndicator: payload.netVatDue > 0 ? 'DD' : 'BANK',
-        processingDate: new Date().toISOString(),
-        chargeRefNumber: `XD${Math.floor(100000000000 + Math.random() * 900000000000)}`,
-        correlationId,
-      };
+    if (!config.baseUrl) {
+      throw new BadRequestError('HMRC API base URL is not configured on the API server.');
     }
-
     if (!accessToken) {
       throw new HmrcApiError({
         message: 'HMRC authorization has expired. Please reconnect this company to HMRC.',

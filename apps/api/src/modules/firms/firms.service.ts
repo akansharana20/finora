@@ -308,7 +308,6 @@ export class FirmsService {
       await tx.vatObligation.deleteMany({ where: { firmId: id } });
       await tx.hmrcOAuthState.deleteMany({ where: { firmId: id } });
       await tx.hmrcConnection.deleteMany({ where: { firmId: id } });
-      await tx.xeroConnection.deleteMany({ where: { firmId: id } });
       await tx.auditLog.deleteMany({ where: { firmId: id } });
       await tx.firmMembership.deleteMany({ where: { firmId: id } });
       await tx.user.updateMany({ where: { firmId: id }, data: { firmId: null } });

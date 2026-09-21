@@ -22,7 +22,6 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  isDemo: boolean;
   activeFirmId: string;
   activeFirmName: string;
   switchCompany: (firmId: string, firmName: string) => void;
@@ -148,7 +147,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isAuthenticated: !!token && !!user,
         isLoading,
-        isDemo: false,
         activeFirmId,
         activeFirmName,
         switchCompany,

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { Landmark, CreditCard, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Landmark, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export const Integrations: React.FC = () => {
   const { activeFirmId } = useAuth();
@@ -81,10 +81,6 @@ export const Integrations: React.FC = () => {
       setConnectingHmrc(false);
       if (res.success && res.data?.url) {
         const url = res.data.url;
-        if (url.startsWith('#') || url.includes('demo-connected')) {
-          setHmrcErrorMessage('Backend returned a demo fallback URL (#demo-connected) instead of an HMRC sandbox OAuth redirect.');
-          return;
-        }
         window.location.href = url;
         return;
       } else {
@@ -105,6 +101,7 @@ export const Integrations: React.FC = () => {
       fetchStatus();
     } else {
       setHmrcErrorMessage(res.error?.message || 'Failed to sync obligations from HMRC.');
+      fetchStatus();
     }
   };
 
@@ -113,8 +110,8 @@ export const Integrations: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-slate-900 tracking-tight">Finora Integration Hub</h2>
-        <p className="text-xs text-slate-500 mt-0.5">Manage external tax, accounting & payment gateway connections</p>
+        <h2 className="text-xl font-bold text-slate-900 tracking-tight">HMRC Making Tax Digital VAT</h2>
+        <p className="text-xs text-slate-500 mt-0.5">Connect your company to HMRC, synchronize VAT obligations, and submit returns.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -127,10 +124,10 @@ export const Integrations: React.FC = () => {
               </div>
               <span
                 className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                  hmrcStatus?.isConnected ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                  syncingHmrc ? 'bg-blue-100 text-blue-800' : hmrcStatus?.status === 'SYNCED' ? 'bg-emerald-100 text-emerald-800' : hmrcStatus?.status === 'AUTHORIZATION_ERROR' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-600'
                 }`}
               >
-                {hmrcStatus?.isConnected ? 'CONNECTED' : 'NOT CONNECTED'}
+                {syncingHmrc ? 'SYNCING' : hmrcStatus?.status || 'NOT_CONNECTED'}
               </span>
             </div>
 
@@ -142,9 +139,7 @@ export const Integrations: React.FC = () => {
             <div className="mt-4 pt-3 border-t border-slate-100 text-xs space-y-1 text-slate-600">
               <div>VRN: <strong className="font-mono text-slate-800">{hmrcStatus?.vrn || 'Not Connected'}</strong></div>
               <div>Environment: <strong className={`font-semibold ${hmrcStatus?.environment === 'production' ? 'text-emerald-600' : 'text-blue-600'}`}>{hmrcStatus?.environment || 'sandbox'}</strong></div>
-              {hmrcStatus?.lastSyncAt && (
-                <div>Last Sync: <span className="text-slate-500">{new Date(hmrcStatus.lastSyncAt).toLocaleString('en-GB')}</span></div>
-              )}
+              <div>Last successful sync: <span className="text-slate-500">{hmrcStatus?.lastSyncAt ? new Date(hmrcStatus.lastSyncAt).toLocaleString('en-GB') : 'Never'}</span></div>
             </div>
 
             {hmrcSuccessMessage && (
@@ -161,10 +156,16 @@ export const Integrations: React.FC = () => {
               </div>
             )}
 
-            {hmrcStatus?.reauthRequired && !hmrcErrorMessage && (
+            {hmrcStatus?.status === 'AUTHORIZATION_ERROR' && !hmrcErrorMessage && (
               <div className="mt-2.5 p-2.5 bg-amber-50 border border-amber-200 text-amber-800 text-[11px] rounded-lg font-medium flex items-start space-x-1.5">
                 <AlertCircle size={14} className="shrink-0 mt-0.5 text-amber-600" />
-                <span className="leading-snug">HMRC authorization has expired. Please click &ldquo;Connect to HMRC&rdquo; to re-authorize.</span>
+                <span className="leading-snug">HMRC authorization requires attention. HMRC has rejected API access for this VAT registration.</span>
+              </div>
+            )}
+            {hmrcStatus?.lastSyncError && !hmrcErrorMessage && (
+              <div className="mt-2.5 p-2.5 bg-red-50 border border-red-200 text-red-700 text-[11px] rounded-lg font-medium flex items-start space-x-1.5">
+                <AlertCircle size={14} className="shrink-0 mt-0.5 text-red-600" />
+                <span className="leading-snug">Current synchronization error: {hmrcStatus.lastSyncError}</span>
               </div>
             )}
           </div>
@@ -196,7 +197,7 @@ export const Integrations: React.FC = () => {
                   <span>Connecting...</span>
                 </>
               ) : (
-                <span>{hmrcStatus?.isConnected ? 'Disconnect HMRC' : 'Connect to HMRC'}</span>
+                <span>{hmrcStatus?.isConnected ? 'Disconnect HMRC' : hmrcStatus?.status === 'AUTHORIZATION_ERROR' ? 'Reconnect HMRC' : 'Connect to HMRC'}</span>
               )}
             </button>}
             {hmrcStatus?.hmrcAvailable === false && (
@@ -207,34 +208,6 @@ export const Integrations: React.FC = () => {
           </div>
         </div>
 
-        {/* PAYMENTS PROVIDER CARD */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between space-y-4">
-          <div>
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold">
-                <CreditCard size={20} />
-              </div>
-              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                ACTIVE
-              </span>
-            </div>
-
-            <h3 className="text-base font-bold text-slate-900 mt-4">Internal Payment Provider</h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Internal payment engine with extensible provider interface for card payments and BACS transfer recording.
-            </p>
-
-            <div className="mt-4 pt-3 border-t border-slate-100 text-xs space-y-1 text-slate-600">
-              <div>Provider: <strong className="text-slate-800">Internal Engine</strong></div>
-              <div>Supported: <span className="text-slate-500">BACS, Card, Direct Debit</span></div>
-              <div>Status: <span className="text-emerald-600 font-semibold">Ready for live gateway key</span></div>
-            </div>
-          </div>
-
-          <div className="p-2.5 bg-slate-50 rounded-lg text-[11px] text-slate-500 text-center border border-slate-200">
-            Provider abstraction layer operational
-          </div>
-        </div>
       </div>
     </div>
   );

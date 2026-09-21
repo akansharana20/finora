@@ -7,7 +7,7 @@ Finora includes a built-in integration engine for HMRC VAT (Making Tax Digital) 
 ## 2. API Architecture
 
 The integration logic is decoupled into 3 clear layers:
-- **`HmrcClient`**: Low-level OAuth redirect builder, obligation fetcher, and return submission client with mock fallback.
+- **`HmrcClient`**: Low-level OAuth redirect builder, obligation fetcher, and return submission client.
 - **`HmrcService`**: High-level business logic connecting firm VRN, managing token persistence, and mapping Finora financial records to the 9 HMRC VAT boxes.
 - **`HmrcController` / `hmrc.routes`**: REST API endpoints for frontend interaction (`/api/hmrc/connect`, `/api/hmrc/callback`, `/api/hmrc/status`, `/api/hmrc/obligations/sync`, `/api/hmrc/returns/:periodKey/submit`).
 
@@ -23,13 +23,9 @@ The integration logic is decoupled into 3 clear layers:
 8. **Box 8**: Total value of goods supplied to EC member states.
 9. **Box 9**: Total value of goods acquired from EC member states.
 
-## 4. Sandbox vs Mock vs Production
+## 4. Sandbox and Production
 
-When `INTEGRATION_MODE=mock`:
-- Uses local simulated responses for automated tests only.
-- Must not be used for a live Sandbox verification because it does not contact HMRC.
-
-When `INTEGRATION_MODE=sandbox`, Finora uses the HMRC test OAuth and VAT API
+When `HMRC_ENVIRONMENT=sandbox`, Finora uses the HMRC test OAuth and VAT API
 hosts and will not fabricate obligations or submission receipts when HMRC has
 no data for the configured Sandbox user.
 

@@ -3,7 +3,7 @@ export default function handler(_req: any, res: any) {
     status: 'ok',
     service: 'finora-api',
     timestamp: new Date().toISOString(),
-    integrationMode: process.env.INTEGRATION_MODE || 'sandbox',
+    environment: process.env.HMRC_ENVIRONMENT || 'sandbox',
   };
 
   if (typeof res.setHeader === 'function') {

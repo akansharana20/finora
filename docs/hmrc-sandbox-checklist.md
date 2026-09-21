@@ -10,7 +10,6 @@ Configure these variables on the API deployment:
 
 ```dotenv
 NODE_ENV=production
-INTEGRATION_MODE=sandbox
 DATABASE_URL=<production-postgres-connection-string>
 JWT_SECRET=<random-secret-at-least-32-characters>
 HMRC_STATE_SECRET=<different-random-secret-at-least-32-characters>
@@ -43,7 +42,6 @@ VITE_API_URL=https://<api-host>/api
    ```
 
 3. Confirm the `hmrc_oauth_states` table exists.
-4. Do not run the legacy seed script against this database.
 
 ## Fresh connection test
 
