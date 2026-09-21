@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { apiFetch, isDemoMode } from '../api/client';
+import { apiFetch } from '../api/client';
 
 export interface UserProfile {
   id: string;
@@ -15,7 +15,6 @@ export interface UserProfile {
     companyNumber?: string;
     vatNumber?: string;
   };
-  demo?: boolean;
 }
 
 interface AuthContextType {
@@ -50,26 +49,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (token) {
-      if (isDemoMode()) {
-        const saved = localStorage.getItem('finora_user');
-        if (saved) {
-          try {
-            const u = JSON.parse(saved);
-            setUser({ ...u, demo: true });
-            setIsLoading(false);
-            return;
-          } catch (e) {
-            // Fallback to apiFetch('/auth/me') below
-          }
-        }
-      }
-
       apiFetch('/auth/me')
         .then((res) => {
           if (res.success && res.data) {
             const u = res.data;
             const firmName = u.firm?.name || u.firmName || '';
-            const fullUser = { ...u, firmName, demo: isDemoMode() };
+            const fullUser = { ...u, firmName };
             setUser(fullUser);
             if (!activeFirmId && fullUser.firmId) {
               setActiveFirmId(fullUser.firmId);
@@ -97,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (res.success && res.data) {
       const { user: loggedUser, token: authToken } = res.data;
       const firmName = loggedUser.firmName || loggedUser.firm?.name || '';
-      const fullUser = { ...loggedUser, firmName, demo: isDemoMode() };
+      const fullUser = { ...loggedUser, firmName };
       setUser(fullUser);
       setToken(authToken);
       setActiveFirmId(loggedUser.firmId || '');
@@ -163,7 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isAuthenticated: !!token && !!user,
         isLoading,
-        isDemo: isDemoMode(),
+        isDemo: false,
         activeFirmId,
         activeFirmName,
         switchCompany,

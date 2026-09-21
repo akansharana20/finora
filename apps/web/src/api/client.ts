@@ -1,13 +1,3 @@
-import { handleMockApi } from './mockData';
-
-export function isDemoMode(): boolean {
-  const demoEnv = import.meta.env.VITE_DEMO_MODE;
-  if (demoEnv === 'false' || demoEnv === '0') {
-    return false;
-  }
-  return demoEnv === 'true' || demoEnv === '1';
-}
-
 function getApiBaseUrl(): string {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
@@ -64,12 +54,6 @@ export async function apiFetch<T = any>(
     ...options,
     headers,
   };
-
-  // HMRC endpoints must never use mock data so they always connect to real/sandbox backend
-  const isHmrcEndpoint = endpoint.startsWith('/hmrc') || endpoint.startsWith('/integrations/hmrc');
-  if (isDemoMode() && !isHmrcEndpoint) {
-    return handleMockApi(endpoint, mergedOptions);
-  }
 
   const token = localStorage.getItem('finora_token');
 

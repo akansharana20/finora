@@ -67,7 +67,6 @@ export function App() {
             <Route path="/vat/returns/:periodKey" element={<VatReturnDetail />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/integrations/hmrc" element={<Integrations />} />
-            <Route path="/integrations/xero" element={<Integrations />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/companies" element={<Companies />} />
             <Route path="/settings" element={<Settings />} />

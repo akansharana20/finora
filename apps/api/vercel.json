@@ -54,10 +54,6 @@
       "dest": "api/index.ts"
     },
     {
-      "src": "/api/xero(/.*)?",
-      "dest": "api/index.ts"
-    },
-    {
       "src": "/api/reports(/.*)?",
       "dest": "api/index.ts"
     },

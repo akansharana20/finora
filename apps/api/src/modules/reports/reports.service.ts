@@ -117,18 +117,6 @@ export class ReportsService {
       });
     }
 
-    // Xero Sync Check
-    const xeroConn = await prisma.xeroConnection.findUnique({ where: { firmId } });
-    if (!xeroConn || !xeroConn.isConnected) {
-      attentionItems.push({
-        id: 'att-xero',
-        type: 'XERO_DISCONNECTED',
-        title: 'Xero Synchronization Inactive',
-        message: 'Connect Xero to keep accounting data in sync',
-        severity: 'info',
-      });
-    }
-
     // Recent Activity timeline
     const recentAuditLogs = await prisma.auditLog.findMany({
       where: { firmId },
